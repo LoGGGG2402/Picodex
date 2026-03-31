@@ -303,7 +303,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     warnOnceLog(
       "app-server",
       `unrouted-browser-bridge:${typedMessage.type}`,
-      "browser bridge message has no Pocodex host route and will be dropped",
+      "browser bridge message has no Picodex host route and will be dropped",
       {
         type: typedMessage.type,
       },
@@ -337,7 +337,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
         result: {
           type: "error",
           error: {
-            message: `Worker "${workerName}" is not available in Pocodex yet.`,
+            message: `Worker "${workerName}" is not available in Picodex yet.`,
           },
         },
       },
@@ -550,7 +550,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       isInitialized: this.isInitialized,
       connectionState: this.connectionState,
       desktopImportPromptSeen: this.desktopImportPromptSeen,
-      reserveLocalRequestId: () => `pocodex-local-${++this.nextRequestId}`,
+      reserveLocalRequestId: () => `picodex-local-${++this.nextRequestId}`,
       setIsInitialized: (next: boolean) => { this.isInitialized = next; },
       setConnectionState: (next: "connecting" | "connected" | "disconnected") => { this.connectionState = next; },
       setDesktopImportPromptSeen: (next: boolean) => { this.desktopImportPromptSeen = next; },

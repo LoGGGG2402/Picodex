@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outputPath = join(projectRoot, "dist", "pocodex-single.js");
+const outputPath = join(projectRoot, "dist", "picodex-single.js");
 const runtimePackageNames = [
   "@electron/asar",
   "@xmldom/xmldom",
@@ -34,7 +34,7 @@ const alwaysIncludedNodeModuleBasenames = new Set(["spawn-helper"]);
 
 async function main() {
   await assertExists("dist/cli.js");
-  await assertExists("dist/assets/styles/pocodex.css");
+  await assertExists("dist/assets/styles/picodex.css");
   await assertExists("dist/assets/images/import.svg");
   await assertExists("app.asar");
 
@@ -145,7 +145,7 @@ function normalizeManifestPath(path) {
 function renderEmbeddedPackageJson() {
   return JSON.stringify(
     {
-      name: "pocodex-single-runtime",
+      name: "picodex-single-runtime",
       private: true,
       type: "module",
     },
@@ -184,13 +184,13 @@ async function main() {
     ? userArgv
     : ["--asar", embeddedAsarPath, ...userArgv];
 
-  process.argv = [process.argv[0] ?? "node", process.argv[1] ?? "pocodex-single.js", ...effectiveArgv];
+  process.argv = [process.argv[0] ?? "node", process.argv[1] ?? "picodex-single.js", ...effectiveArgv];
   await import(pathToFileURL(join(extractionRoot, "dist", "cli.js")).href);
 }
 
 async function ensurePayloadExtracted() {
   const cacheHome = process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache");
-  const bundleRoot = join(cacheHome, "pocodex", "single", PAYLOAD_HASH);
+  const bundleRoot = join(cacheHome, "picodex", "single", PAYLOAD_HASH);
   const markerPath = join(bundleRoot, ".complete");
 
   try {

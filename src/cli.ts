@@ -14,10 +14,10 @@ import { renderBootstrapScript } from "./browser/bootstrap/index.js";
 import { patchIndexHtml } from "./server/html-patcher.js";
 import type { SentryInitOptions, ServeCommandOptions } from "./core/protocol.js";
 import { getServeUrls } from "./server/serve-url.js";
-import { PocodexServer } from "./server/pocodex-server.js";
+import { PicodexServer } from "./server/picodex-server.js";
 
 const DEFAULT_LISTEN = "127.0.0.1:8787";
-const POCODEX_STYLESHEET_HREF = "/pocodex.css";
+const POCODEX_STYLESHEET_HREF = "/picodex.css";
 const FLAG_NAMES_WITH_VALUES = new Set(["--app", "--asar", "--codex-bin", "--listen", "--token"]);
 const BOOLEAN_FLAG_NAMES = new Set(["--dev"]);
 
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
     appAsarPath: options.appAsarPath,
     codexCliPath: options.codexCliPath,
   });
-  const pocodexCssPath = fileURLToPath(new URL("./assets/styles/pocodex.css", import.meta.url));
+  const picodexCssPath = fileURLToPath(new URL("./assets/styles/picodex.css", import.meta.url));
   const importIconSvgPath = fileURLToPath(new URL("./assets/images/import.svg", import.meta.url));
   const bundle = await loadCodexBundle(resolvedCodexPaths);
   const highlightModuleHref = await resolveHighlightModuleHref(bundle.webviewRoot);
@@ -66,13 +66,13 @@ async function main(): Promise<void> {
     codexAppSessionId: randomUUID(),
   };
 
-  const server = new PocodexServer({
+  const server = new PicodexServer({
     listenHost: options.listenHost,
     listenPort: options.listenPort,
     token: options.token,
     relay,
     webviewRoot: bundle.webviewRoot,
-    readPocodexStylesheet: async () => readFile(pocodexCssPath, "utf8"),
+    readPicodexStylesheet: async () => readFile(picodexCssPath, "utf8"),
     renderIndexHtml: async () => {
       const indexHtml = await bundle.readIndexHtml();
       return patchIndexHtml(indexHtml, {
@@ -88,13 +88,13 @@ async function main(): Promise<void> {
   });
 
   const stopWatchingStylesheet = options.devMode
-    ? watchPocodexStylesheet(pocodexCssPath, () => {
+    ? watchPicodexStylesheet(picodexCssPath, () => {
         server.notifyStylesheetReload(String(Date.now()));
       })
     : () => {};
 
   const shutdown = async (signal: string) => {
-    console.log(`\nShutting down Pocodex after ${signal}...`);
+    console.log(`\nShutting down Picodex after ${signal}...`);
     stopWatchingStylesheet();
     await server.close();
     await relay.close();
@@ -116,7 +116,7 @@ async function main(): Promise<void> {
     token: options.token,
   });
 
-  console.log(`Pocodex listening on ${serveUrls.localUrl}`);
+  console.log(`Picodex listening on ${serveUrls.localUrl}`);
   console.log(`Open ${serveUrls.localOpenUrl}`);
   if (serveUrls.networkUrl && serveUrls.networkOpenUrl) {
     console.log(`Local network URL ${serveUrls.networkUrl}`);
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
   console.log(`Using Codex ${bundle.version} from ${bundle.appPath}`);
   console.log(`Using direct app-server bridge from ${resolvedCodexPaths.codexCliPath}`);
   if (options.devMode) {
-    console.log(`Watching ${pocodexCssPath} for stylesheet changes`);
+    console.log(`Watching ${picodexCssPath} for stylesheet changes`);
   }
 }
 
@@ -219,11 +219,11 @@ function hasFlag(argv: string[], name: string): boolean {
 function printUsage(): void {
   console.error("Usage:");
   console.error(
-    "  pocodex [--token <secret>] [--asar /path/to/app.asar] [--app /path/to/Codex] [--codex-bin /path/to/codex] [--listen 127.0.0.1:8787] [--dev]",
+    "  picodex [--token <secret>] [--asar /path/to/app.asar] [--app /path/to/Codex] [--codex-bin /path/to/codex] [--listen 127.0.0.1:8787] [--dev]",
   );
 }
 
-function watchPocodexStylesheet(cssFilePath: string, onChange: () => void): () => void {
+function watchPicodexStylesheet(cssFilePath: string, onChange: () => void): () => void {
   const cssDirectory = dirname(cssFilePath);
   const cssFilename = basename(cssFilePath);
   let debounceTimer: NodeJS.Timeout | undefined;

@@ -130,7 +130,7 @@ export function createLocalBrowserBridgeHandlers(
         bridge.emitBridgeMessage({
           type: "fetch-stream-error",
           requestId: typeof message.requestId === "string" ? message.requestId : "",
-          error: "Streaming fetch is not supported in Pocodex yet.",
+          error: "Streaming fetch is not supported in Picodex yet.",
         });
         bridge.emitBridgeMessage({
           type: "fetch-stream-complete",

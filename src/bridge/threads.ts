@@ -440,7 +440,7 @@ function buildSyntheticCollabToolCall(
   collabCall: ResolvedSessionSyntheticCollabCallRecord,
 ): JsonRecord {
   return {
-    id: `pocodex-collab-agent-${collabCall.agentId}`,
+    id: `picodex-collab-agent-${collabCall.agentId}`,
     type: "collabAgentToolCall",
     tool: collabCall.tool,
     status: collabCall.status,

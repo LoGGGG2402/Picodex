@@ -16,7 +16,7 @@ export interface LoadedWorkspaceRootRegistry {
 }
 
 export function deriveWorkspaceRootRegistryPath(): string {
-  return join(resolveCodexHomePath(), "pocodex", "workspace-roots.json");
+  return join(resolveCodexHomePath(), "picodex", "workspace-roots.json");
 }
 
 export async function loadWorkspaceRootRegistry(

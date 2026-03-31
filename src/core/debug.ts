@@ -3,7 +3,7 @@ export function debugLog(scope: string, message: string, details?: unknown): voi
     return;
   }
 
-  const prefix = `[pocodex:${scope}] ${message}`;
+  const prefix = `[picodex:${scope}] ${message}`;
   if (details === undefined) {
     console.log(prefix);
     return;
@@ -30,7 +30,7 @@ export function warnOnceLog(
   }
   warnedLogKeys.add(normalizedKey);
 
-  const prefix = `[pocodex:${scope}] ${message}`;
+  const prefix = `[picodex:${scope}] ${message}`;
   if (details === undefined) {
     console.warn(prefix);
     return;

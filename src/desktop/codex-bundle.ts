@@ -202,7 +202,7 @@ async function ensureDesktopWorkerCache(appAsarPath: string, version: string): P
 
 function cacheRootForVersion(version: string): string {
   const cacheHome = process.env.XDG_CACHE_HOME ?? join(homedir(), ".cache");
-  return join(cacheHome, "pocodex", version);
+  return join(cacheHome, "picodex", version);
 }
 
 function markerPathFor(directory: string): string {

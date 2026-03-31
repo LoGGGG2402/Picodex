@@ -273,7 +273,7 @@ export class DefaultCodexDesktopGitWorkerBridge
       result: {
         type: "error",
         error: {
-          message: `Unsupported git worker main RPC method "${message.method}" in Pocodex.`,
+          message: `Unsupported git worker main RPC method "${message.method}" in Picodex.`,
         },
       },
     });

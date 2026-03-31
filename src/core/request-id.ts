@@ -1,6 +1,6 @@
 import type { HostMessageRouteResult, JsonRecord } from "./protocol.js";
 
-const PREFIX = "pocodex";
+const PREFIX = "picodex";
 
 export function rewriteRequestIdsForHost(sessionId: string, message: unknown): unknown {
   if (!isJsonRecord(message)) {

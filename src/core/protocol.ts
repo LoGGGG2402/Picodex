@@ -15,13 +15,13 @@ export interface ServeCommandOptions {
   token: string;
 }
 
-export interface PocodexServerOptions {
+export interface PicodexServerOptions {
   listenHost: string;
   listenPort: number;
   token: string;
   relay: HostBridge;
   webviewRoot: string;
-  readPocodexStylesheet: () => Promise<string>;
+  readPicodexStylesheet: () => Promise<string>;
   renderIndexHtml: () => Promise<string>;
 }
 

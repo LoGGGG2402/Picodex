@@ -218,8 +218,8 @@ export function handleElectronAppStateSnapshotTrigger(
   bridge: RuntimeStateContext,
   message: JsonRecord & { type: string },
 ): void {
-  const reason = normalizeNonEmptyString(message.reason) ?? "pocodex-bridge";
-  const requestId = `pocodex-app-state-snapshot-${randomUUID()}`;
+  const reason = normalizeNonEmptyString(message.reason) ?? "picodex-bridge";
+  const requestId = `picodex-app-state-snapshot-${randomUUID()}`;
   debugLog("app-server", "bridging app state snapshot trigger", { requestId, reason });
   bridge.emitBridgeMessage({
     type: "electron-app-state-snapshot-request",

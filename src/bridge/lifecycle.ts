@@ -116,7 +116,7 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
       case "workspace-files/search":
         return buildIpcSuccessResponse(requestId, await bridge.searchWorkspaceBrowserFiles(payload.params));
       default:
-        return buildIpcErrorResponse(requestId, `IPC method "${method}" is not supported in Pocodex yet.`);
+        return buildIpcErrorResponse(requestId, `IPC method "${method}" is not supported in Picodex yet.`);
     }
   } catch (error) {
     return buildIpcErrorResponse(requestId, error instanceof Error ? error.message : String(error));
@@ -178,8 +178,8 @@ export async function initialize(bridge: LifecycleContext): Promise<void> {
 
   await sendLocalRequest(bridge, "initialize", {
     clientInfo: {
-      name: "pocodex",
-      title: "Pocodex",
+      name: "picodex",
+      title: "Picodex",
       version: "0.1.0",
     },
     capabilities: {

@@ -19,8 +19,8 @@ export interface TerminalCreateMessage {
   cwd?: unknown;
   cols?: unknown;
   rows?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 export interface TerminalAttachMessage {
@@ -30,37 +30,37 @@ export interface TerminalAttachMessage {
   cols?: unknown;
   rows?: unknown;
   forceCwdSync?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 export interface TerminalWriteMessage {
   sessionId?: unknown;
   data?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 export interface TerminalRunActionMessage {
   sessionId?: unknown;
   cwd?: unknown;
   command?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 export interface TerminalResizeMessage {
   sessionId?: unknown;
   cols?: unknown;
   rows?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 export interface TerminalCloseMessage {
   sessionId?: unknown;
-  _pocodexBrowserSessionId?: unknown;
-  _pocodexBrowserTerminalSessionId?: unknown;
+  _picodexBrowserSessionId?: unknown;
+  _picodexBrowserTerminalSessionId?: unknown;
 }
 
 interface TerminalCreateOrAttachRequest {
@@ -505,8 +505,8 @@ function normalizeCreateOrAttachRequest(
     cols: readPositiveInteger(message.cols) ?? DEFAULT_TERMINAL_COLS,
     rows: readPositiveInteger(message.rows) ?? DEFAULT_TERMINAL_ROWS,
     forceCwdSync: "forceCwdSync" in message && message.forceCwdSync === true,
-    browserSessionId: readString(message._pocodexBrowserSessionId),
-    browserTerminalSessionId: readString(message._pocodexBrowserTerminalSessionId),
+    browserSessionId: readString(message._picodexBrowserSessionId),
+    browserTerminalSessionId: readString(message._picodexBrowserTerminalSessionId),
   };
 }
 
@@ -520,8 +520,8 @@ function readTerminalRoutingTarget(
     | TerminalCloseMessage,
 ): TerminalRoutingTarget {
   return {
-    browserSessionId: readString(message._pocodexBrowserSessionId),
-    browserTerminalSessionId: readString(message._pocodexBrowserTerminalSessionId),
+    browserSessionId: readString(message._picodexBrowserSessionId),
+    browserTerminalSessionId: readString(message._picodexBrowserTerminalSessionId),
   };
 }
 
@@ -532,9 +532,9 @@ function withTerminalRoutingTarget(target: TerminalRoutingTarget, message: JsonR
 
   return {
     ...message,
-    ...(target.browserSessionId ? { _pocodexBrowserSessionId: target.browserSessionId } : {}),
+    ...(target.browserSessionId ? { _picodexBrowserSessionId: target.browserSessionId } : {}),
     ...(target.browserTerminalSessionId
-      ? { _pocodexBrowserTerminalSessionId: target.browserTerminalSessionId }
+      ? { _picodexBrowserTerminalSessionId: target.browserTerminalSessionId }
       : {}),
   };
 }

@@ -7,7 +7,7 @@ export function patchIndexHtml(
     stylesheetHref: string;
   },
 ): string {
-  const stylesheetTag = `<link rel="stylesheet" href="${options.stylesheetHref}" id="pocodex-stylesheet">`;
+  const stylesheetTag = `<link rel="stylesheet" href="${options.stylesheetHref}" id="picodex-stylesheet">`;
   const bootstrapTag = `<script>${options.bootstrapScript}</script>`;
   const withBootstrap = html.replace(
     /(\s*)(<script type="module"\s+crossorigin\s+src="\.[^"]+"><\/script>)/,

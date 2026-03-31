@@ -201,7 +201,7 @@ export async function handleCodexFetchRequest(
     case "list-pending-automation-run-threads":
       return { status: 200, body: { threadIds: [] } };
     case "extension-info":
-      return { status: 200, body: { version: "0.1.0", buildFlavor: "pocodex", buildNumber: "0" } };
+      return { status: 200, body: { version: "0.1.0", buildFlavor: "picodex", buildNumber: "0" } };
     case "is-copilot-api-available":
       return { status: 200, body: { available: false } };
     case "get-copilot-api-proxy-info":

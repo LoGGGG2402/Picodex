@@ -28,10 +28,10 @@ export function installBootstrapOpenInAppModule(): {
         return;
       }
       if (isOpenInAppButtonGroup(group)) {
-        group.dataset.pocodexOpenInApp = "true";
+        group.dataset.picodexOpenInApp = "true";
         return;
       }
-      delete group.dataset.pocodexOpenInApp;
+      delete group.dataset.picodexOpenInApp;
     });
   }
 

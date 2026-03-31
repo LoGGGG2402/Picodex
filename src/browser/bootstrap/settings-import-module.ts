@@ -27,7 +27,7 @@ export function installBootstrapSettingsImportModule(args: {
   maybePromptForDesktopImport: () => Promise<void>;
   openDesktopImportDialog: (mode: DesktopImportMode) => Promise<void>;
   openManualFilePickerDialog: (title: string) => Promise<HostResolvedFile[]>;
-  callPocodexIpc: (method: string, params?: unknown) => Promise<unknown>;
+  callPicodexIpc: (method: string, params?: unknown) => Promise<unknown>;
   formatDesktopImportPath: (path: string) => string;
   getWorkspaceFileRoots: (result: unknown) => WorkspaceFileRoot[];
   getWorkspaceFileDirectoryResult: (result: unknown) => {
@@ -50,7 +50,7 @@ export function installBootstrapSettingsImportModule(args: {
     isRecord,
   } = args;
 
-  const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "pocodexEmbed";
+  const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "picodexEmbed";
   const POCODEX_SETTINGS_EMBED_VALUE = "settings-modal";
 
   let isImportUiObserverStarted = false;
@@ -88,14 +88,14 @@ export function installBootstrapSettingsImportModule(args: {
 
   function removeInjectedSettingsButtons(root: Document | Element = document): void {
     root
-      .querySelectorAll('[data-pocodex-header-settings="true"], [data-pocodex-floating-settings="true"]')
+      .querySelectorAll('[data-picodex-header-settings="true"], [data-picodex-floating-settings="true"]')
       .forEach((button) => {
         button.remove();
       });
   }
 
   function installEmbeddedSettingsChromeCleanup(): void {
-    document.documentElement.dataset.pocodexEmbeddedSettingsView = "true";
+    document.documentElement.dataset.picodexEmbeddedSettingsView = "true";
     cleanupEmbeddedSettingsChrome(document);
 
     if (!document.body) {
@@ -126,7 +126,7 @@ export function installBootstrapSettingsImportModule(args: {
   }
 
   function shouldHideEmbeddedSettingsElement(element: HTMLElement): boolean {
-    if (element.closest("#pocodex-settings-modal-host")) {
+    if (element.closest("#picodex-settings-modal-host")) {
       return false;
     }
 
@@ -170,11 +170,11 @@ export function installBootstrapSettingsImportModule(args: {
   }
 
   function shouldOverrideNativeSettingsTrigger(trigger: Element): boolean {
-    if (trigger.closest("#pocodex-settings-modal-host")) {
+    if (trigger.closest("#picodex-settings-modal-host")) {
       return false;
     }
 
-    if (trigger instanceof HTMLElement && Object.keys(trigger.dataset).some((key) => key.startsWith("pocodex"))) {
+    if (trigger instanceof HTMLElement && Object.keys(trigger.dataset).some((key) => key.startsWith("picodex"))) {
       return false;
     }
 
@@ -196,16 +196,16 @@ export function installBootstrapSettingsImportModule(args: {
       return;
     }
 
-    if (menu.querySelector('[data-pocodex-import-menu-item="true"]')) {
+    if (menu.querySelector('[data-picodex-import-menu-item="true"]')) {
       return;
     }
 
     const button = document.createElement("button");
     button.type = "button";
     button.role = "menuitem";
-    button.dataset.pocodexImportMenuItem = "true";
+    button.dataset.picodexImportMenuItem = "true";
     const label = document.createElement("span");
-    label.dataset.pocodexImportMenuLabel = "true";
+    label.dataset.picodexImportMenuLabel = "true";
     label.textContent = "Import from Codex.app";
     button.append(createImportMenuItemIcon(), label);
     button.addEventListener("click", (event) => {
@@ -216,14 +216,14 @@ export function installBootstrapSettingsImportModule(args: {
 
     const separator = document.createElement("div");
     separator.role = "separator";
-    separator.dataset.pocodexImportMenuSeparator = "true";
+    separator.dataset.picodexImportMenuSeparator = "true";
 
     menu.append(separator, button);
   }
 
   function createImportMenuItemIcon(): HTMLSpanElement {
     const icon = document.createElement("span");
-    icon.dataset.pocodexImportMenuIcon = "true";
+    icon.dataset.picodexImportMenuIcon = "true";
     if (config.importIconSvg) {
       icon.innerHTML = config.importIconSvg.trim();
     }
@@ -232,7 +232,7 @@ export function installBootstrapSettingsImportModule(args: {
 
   function createSettingsMenuItemIcon(): HTMLSpanElement {
     const icon = document.createElement("span");
-    icon.dataset.pocodexSettingsMenuIcon = "true";
+    icon.dataset.picodexSettingsMenuIcon = "true";
     icon.innerHTML = getSettingsMenuItemIconSvg();
     return icon;
   }
@@ -362,10 +362,10 @@ export function installBootstrapSettingsImportModule(args: {
 
     ensureHostAttached(settingsModalHost);
 
-    const existingFrame = settingsModalHost.querySelector('[data-pocodex-settings-frame="true"]');
+    const existingFrame = settingsModalHost.querySelector('[data-picodex-settings-frame="true"]');
     if (isHtmlIFrameElement(existingFrame)) {
       setSettingsModalOpenState(true);
-      existingFrame.dataset.pocodexSettingsLoaded = "false";
+      existingFrame.dataset.picodexSettingsLoaded = "false";
       existingFrame.src = buildSettingsEmbedUrl(section);
       settingsModalHost.hidden = false;
       return true;
@@ -376,23 +376,23 @@ export function installBootstrapSettingsImportModule(args: {
     settingsModalHost.replaceChildren();
 
     const backdrop = document.createElement("div");
-    backdrop.dataset.pocodexSettingsBackdrop = "true";
+    backdrop.dataset.picodexSettingsBackdrop = "true";
 
     const dialog = document.createElement("section");
-    dialog.dataset.pocodexSettingsDialog = "true";
+    dialog.dataset.picodexSettingsDialog = "true";
     dialog.setAttribute?.("role", "dialog");
     dialog.setAttribute?.("aria-modal", "true");
     dialog.setAttribute?.("aria-label", "Settings");
 
     const header = document.createElement("div");
-    header.dataset.pocodexSettingsDialogHeader = "true";
+    header.dataset.picodexSettingsDialogHeader = "true";
 
     const title = document.createElement("h2");
     title.textContent = "Settings";
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
-    closeButton.dataset.pocodexSettingsDialogClose = "true";
+    closeButton.dataset.picodexSettingsDialogClose = "true";
     closeButton.textContent = "Close";
     closeButton.addEventListener("click", () => {
       closeCustomSettingsModal();
@@ -401,12 +401,12 @@ export function installBootstrapSettingsImportModule(args: {
     header.append(title, closeButton);
 
     const frame = document.createElement("iframe");
-    frame.dataset.pocodexSettingsFrame = "true";
-    frame.dataset.pocodexSettingsLoaded = "false";
+    frame.dataset.picodexSettingsFrame = "true";
+    frame.dataset.picodexSettingsLoaded = "false";
     frame.src = buildSettingsEmbedUrl(section);
     frame.setAttribute?.("title", "Settings");
     frame.addEventListener("load", () => {
-      frame.dataset.pocodexSettingsLoaded = "true";
+      frame.dataset.picodexSettingsLoaded = "true";
     });
 
     dialog.append(header, frame);
@@ -460,9 +460,9 @@ export function installBootstrapSettingsImportModule(args: {
   }
 
   function setSettingsModalOpenState(isOpen: boolean): void {
-    document.documentElement.dataset.pocodexSettingsModalOpen = isOpen ? "true" : "false";
+    document.documentElement.dataset.picodexSettingsModalOpen = isOpen ? "true" : "false";
     if (document.body) {
-      document.body.dataset.pocodexSettingsModalOpen = isOpen ? "true" : "false";
+      document.body.dataset.picodexSettingsModalOpen = isOpen ? "true" : "false";
     }
   }
 
@@ -549,13 +549,13 @@ export function installBootstrapSettingsImportModule(args: {
     );
 
     const backdrop = document.createElement("div");
-    backdrop.dataset.pocodexImportBackdrop = "true";
+    backdrop.dataset.picodexImportBackdrop = "true";
 
     const dialog = document.createElement("section");
-    dialog.dataset.pocodexImportDialog = "true";
+    dialog.dataset.picodexImportDialog = "true";
 
     const header = document.createElement("div");
-    header.dataset.pocodexImportHeader = "true";
+    header.dataset.picodexImportHeader = "true";
 
     const selectedRoots = new Set<string>();
     const sortedProjects = [...result.projects].sort((left, right) => {
@@ -565,7 +565,7 @@ export function installBootstrapSettingsImportModule(args: {
       return left.label.localeCompare(right.label);
     });
     const isManualOnlyDialog = mode === "manual" && sortedProjects.length === 0;
-    dialog.dataset.pocodexImportLayout = isManualOnlyDialog ? "manual-only" : "default";
+    dialog.dataset.picodexImportLayout = isManualOnlyDialog ? "manual-only" : "default";
 
     if (!isManualOnlyDialog) {
       const title = document.createElement("h2");
@@ -574,7 +574,7 @@ export function installBootstrapSettingsImportModule(args: {
       const subtitle = document.createElement("p");
       subtitle.textContent =
         mode === "first-run"
-          ? "Choose which saved Codex.app projects you want to add to Pocodex."
+          ? "Choose which saved Codex.app projects you want to add to Picodex."
           : "Import a saved Codex.app project or enter a local workspace path manually.";
 
       header.append(title, subtitle);
@@ -582,11 +582,11 @@ export function installBootstrapSettingsImportModule(args: {
 
     const hasDesktopProjects = sortedProjects.length > 0;
     const list = document.createElement("div");
-    list.dataset.pocodexImportList = "true";
+    list.dataset.picodexImportList = "true";
     if (hasDesktopProjects) {
       for (const project of sortedProjects) {
         const row = document.createElement("label");
-        row.dataset.pocodexImportRow = "true";
+        row.dataset.picodexImportRow = "true";
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -602,7 +602,7 @@ export function installBootstrapSettingsImportModule(args: {
         });
 
         const details = document.createElement("div");
-        details.dataset.pocodexImportDetails = "true";
+        details.dataset.picodexImportDetails = "true";
 
         const label = document.createElement("strong");
         label.textContent = project.label;
@@ -613,12 +613,12 @@ export function installBootstrapSettingsImportModule(args: {
         details.append(label, root);
 
         const badges = document.createElement("div");
-        badges.dataset.pocodexImportBadges = "true";
+        badges.dataset.picodexImportBadges = "true";
         if (project.activeInCodex) {
           badges.appendChild(createDesktopImportBadge("Active in Codex.app"));
         }
         if (project.alreadyImported) {
-          badges.appendChild(createDesktopImportBadge("Already in Pocodex"));
+          badges.appendChild(createDesktopImportBadge("Already in Picodex"));
         } else if (!project.available) {
           badges.appendChild(createDesktopImportBadge("Missing on disk"));
         }
@@ -631,8 +631,8 @@ export function installBootstrapSettingsImportModule(args: {
       }
     } else if (mode === "manual" && !isManualOnlyDialog) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexImportEmptyState = "true";
-      emptyState.dataset.pocodexCompact = "true";
+      emptyState.dataset.picodexImportEmptyState = "true";
+      emptyState.dataset.picodexCompact = "true";
       emptyState.textContent = result.found
         ? "No additional Codex.app projects are available to import."
         : "Codex.app project state was not found on this host.";
@@ -640,26 +640,26 @@ export function installBootstrapSettingsImportModule(args: {
     }
 
     const manualSection = document.createElement("form");
-    manualSection.dataset.pocodexManualWorkspaceForm = "true";
+    manualSection.dataset.picodexManualWorkspaceForm = "true";
     if (isManualOnlyDialog) {
       manualSection.dataset.layout = "standalone";
     }
 
     const manualCopy = document.createElement("div");
-    manualCopy.dataset.pocodexManualWorkspaceCopy = "true";
+    manualCopy.dataset.picodexManualWorkspaceCopy = "true";
 
     const manualLabel = document.createElement("label");
-    manualLabel.dataset.pocodexManualWorkspaceLabel = "true";
+    manualLabel.dataset.picodexManualWorkspaceLabel = "true";
     manualLabel.textContent = "Workspace path";
 
     const manualHint = document.createElement("p");
-    manualHint.dataset.pocodexManualWorkspaceHint = "true";
+    manualHint.dataset.picodexManualWorkspaceHint = "true";
     manualHint.textContent = "Type a path and choose one of the existing folders below.";
 
     manualCopy.append(manualLabel, manualHint);
 
     const manualControls = document.createElement("div");
-    manualControls.dataset.pocodexManualWorkspaceControls = "true";
+    manualControls.dataset.picodexManualWorkspaceControls = "true";
 
     const manualInput = document.createElement("input");
     manualInput.type = "text";
@@ -667,7 +667,7 @@ export function installBootstrapSettingsImportModule(args: {
     manualInput.placeholder = "/Users/phanlong/Documents/project";
     manualInput.autocomplete = "off";
     manualInput.spellcheck = false;
-    manualInput.dataset.pocodexManualWorkspaceInput = "true";
+    manualInput.dataset.picodexManualWorkspaceInput = "true";
 
     const homeButton = document.createElement("button");
     homeButton.type = "button";
@@ -676,13 +676,13 @@ export function installBootstrapSettingsImportModule(args: {
     manualControls.append(manualInput, homeButton);
 
     const suggestions = document.createElement("div");
-    suggestions.dataset.pocodexManualWorkspaceSuggestions = "true";
+    suggestions.dataset.picodexManualWorkspaceSuggestions = "true";
 
     const suggestionsStatus = document.createElement("div");
-    suggestionsStatus.dataset.pocodexManualWorkspaceSuggestionsStatus = "true";
+    suggestionsStatus.dataset.picodexManualWorkspaceSuggestionsStatus = "true";
 
     const suggestionsList = document.createElement("div");
-    suggestionsList.dataset.pocodexManualWorkspaceSuggestionsList = "true";
+    suggestionsList.dataset.picodexManualWorkspaceSuggestionsList = "true";
 
     suggestions.append(suggestionsStatus, suggestionsList);
 
@@ -692,7 +692,7 @@ export function installBootstrapSettingsImportModule(args: {
     manualSubmitButton.textContent = "Add folder";
 
     const manualActions = document.createElement("div");
-    manualActions.dataset.pocodexManualWorkspaceActions = "true";
+    manualActions.dataset.picodexManualWorkspaceActions = "true";
 
     let homeDirectoryPath = "";
     let highlightedSuggestionIndex = -1;
@@ -737,7 +737,7 @@ export function installBootstrapSettingsImportModule(args: {
 
     const createWorkspaceSuggestionIcon = (): HTMLSpanElement => {
       const icon = document.createElement("span");
-      icon.dataset.pocodexManualWorkspaceSuggestionIcon = "true";
+      icon.dataset.picodexManualWorkspaceSuggestionIcon = "true";
       icon.innerHTML =
         '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.75 4.25a1 1 0 0 1 1-1h3.15c.25 0 .5.1.68.28l.74.74c.19.18.43.28.68.28h4a1 1 0 0 1 1 1v5.7a1.5 1.5 0 0 1-1.5 1.5H3.25a1.5 1.5 0 0 1-1.5-1.5v-7Z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>';
       return icon;
@@ -772,15 +772,15 @@ export function installBootstrapSettingsImportModule(args: {
         const parentPath = getParentDirectoryPath(baseDirectory);
         const parentRow = document.createElement("button");
         parentRow.type = "button";
-        parentRow.dataset.pocodexManualWorkspaceSuggestion = "true";
+        parentRow.dataset.picodexManualWorkspaceSuggestion = "true";
         parentRow.dataset.path = parentPath;
 
         const parentName = document.createElement("span");
-        parentName.dataset.pocodexManualWorkspaceSuggestionName = "true";
+        parentName.dataset.picodexManualWorkspaceSuggestionName = "true";
         parentName.textContent = "..";
 
         const parentPathLabel = document.createElement("span");
-        parentPathLabel.dataset.pocodexManualWorkspaceSuggestionPath = "true";
+        parentPathLabel.dataset.picodexManualWorkspaceSuggestionPath = "true";
         parentPathLabel.textContent = "Parent directory";
 
         parentRow.append(createWorkspaceSuggestionIcon(), parentName, parentPathLabel);
@@ -801,15 +801,15 @@ export function installBootstrapSettingsImportModule(args: {
       for (const entry of matches) {
         const row = document.createElement("button");
         row.type = "button";
-        row.dataset.pocodexManualWorkspaceSuggestion = "true";
+        row.dataset.picodexManualWorkspaceSuggestion = "true";
         row.dataset.path = entry.path;
 
         const name = document.createElement("span");
-        name.dataset.pocodexManualWorkspaceSuggestionName = "true";
+        name.dataset.picodexManualWorkspaceSuggestionName = "true";
         name.textContent = entry.name;
 
         const pathLabel = document.createElement("span");
-        pathLabel.dataset.pocodexManualWorkspaceSuggestionPath = "true";
+        pathLabel.dataset.picodexManualWorkspaceSuggestionPath = "true";
         pathLabel.textContent = formatDesktopImportPath(entry.path);
 
         row.append(createWorkspaceSuggestionIcon(), name, pathLabel);
@@ -851,7 +851,7 @@ export function installBootstrapSettingsImportModule(args: {
       suggestionsStatus.textContent = "Loading folders...";
 
       try {
-        const result = await callPocodexIpc("host-files/list-directory", { path: baseDirectory });
+        const result = await callPicodexIpc("host-files/list-directory", { path: baseDirectory });
         if (requestRevision !== autocompleteRequestRevision) {
           return;
         }
@@ -887,7 +887,7 @@ export function installBootstrapSettingsImportModule(args: {
       manualSubmitButton.textContent = "Adding...";
 
       try {
-        const result = await callPocodexIpc("desktop-workspace-import/add-manual", {
+        const result = await callPicodexIpc("desktop-workspace-import/add-manual", {
           root,
         });
         const addedRoot = getAddedRoot(result);
@@ -973,7 +973,7 @@ export function installBootstrapSettingsImportModule(args: {
     });
 
     const actions = document.createElement("div");
-    actions.dataset.pocodexImportActions = "true";
+    actions.dataset.picodexImportActions = "true";
 
     const cancelButton = document.createElement("button");
     cancelButton.type = "button";
@@ -1010,7 +1010,7 @@ export function installBootstrapSettingsImportModule(args: {
       importButton.textContent = "Importing...";
 
       try {
-        const result = await callPocodexIpc("desktop-workspace-import/apply", {
+        const result = await callPicodexIpc("desktop-workspace-import/apply", {
           roots,
         });
         const importedRoots = getImportedRoots(result);
@@ -1055,7 +1055,7 @@ export function installBootstrapSettingsImportModule(args: {
     importHost.appendChild(backdrop);
     void (async () => {
       try {
-        const result = await callPocodexIpc("host-files/list-directory", { path: "" });
+        const result = await callPicodexIpc("host-files/list-directory", { path: "" });
         const directory = getHostDirectoryListing(result);
         if (!directory) {
           throw new Error("Host directory response was invalid.");
@@ -1083,7 +1083,7 @@ export function installBootstrapSettingsImportModule(args: {
 
   function createDesktopImportBadge(text: string): HTMLSpanElement {
     const badge = document.createElement("span");
-    badge.dataset.pocodexImportBadge = "true";
+    badge.dataset.picodexImportBadge = "true";
     badge.textContent = text;
     return badge;
   }
@@ -1098,7 +1098,7 @@ export function installBootstrapSettingsImportModule(args: {
 
   async function dismissDesktopImportPrompt(): Promise<void> {
     try {
-      await callPocodexIpc("desktop-workspace-import/dismiss");
+      await callPicodexIpc("desktop-workspace-import/dismiss");
     } catch (error) {
       showNotice(
         error instanceof Error ? error.message : "Failed to dismiss the Codex.app import prompt.",
@@ -1108,7 +1108,7 @@ export function installBootstrapSettingsImportModule(args: {
 
   async function listDesktopImportProjects(): Promise<DesktopImportListResult | null> {
     try {
-      const result = await callPocodexIpc("desktop-workspace-import/list");
+      const result = await callPicodexIpc("desktop-workspace-import/list");
       return isDesktopImportListResult(result) ? result : null;
     } catch (error) {
       showNotice(error instanceof Error ? error.message : "Failed to load Codex.app projects.");
@@ -1135,28 +1135,28 @@ export function installBootstrapSettingsImportModule(args: {
       };
 
       const backdrop = document.createElement("div");
-      backdrop.dataset.pocodexImportBackdrop = "true";
+      backdrop.dataset.picodexImportBackdrop = "true";
 
       const dialog = document.createElement("section");
-      dialog.dataset.pocodexImportDialog = "true";
+      dialog.dataset.picodexImportDialog = "true";
 
       const header = document.createElement("div");
-      header.dataset.pocodexImportHeader = "true";
+      header.dataset.picodexImportHeader = "true";
 
       const heading = document.createElement("h2");
       heading.textContent = title;
 
       const subtitle = document.createElement("p");
       subtitle.textContent =
-        "Enter one or more local file paths on the Pocodex host to attach them without restarting.";
+        "Enter one or more local file paths on the Picodex host to attach them without restarting.";
 
       header.append(heading, subtitle);
 
       const form = document.createElement("form");
-      form.dataset.pocodexManualFileForm = "true";
+      form.dataset.picodexManualFileForm = "true";
 
       const label = document.createElement("label");
-      label.dataset.pocodexManualFileLabel = "true";
+      label.dataset.picodexManualFileLabel = "true";
       label.textContent = "File paths";
 
       const textarea = document.createElement("textarea");
@@ -1164,14 +1164,14 @@ export function installBootstrapSettingsImportModule(args: {
       textarea.placeholder = "/absolute/path/to/file.ts\n/absolute/path/to/image.png";
       textarea.autocomplete = "off";
       textarea.spellcheck = false;
-      textarea.dataset.pocodexManualFileInput = "true";
+      textarea.dataset.picodexManualFileInput = "true";
 
       const hint = document.createElement("p");
-      hint.dataset.pocodexManualFileHint = "true";
-      hint.textContent = "Use one absolute path per line. Files must exist on the Pocodex host.";
+      hint.dataset.picodexManualFileHint = "true";
+      hint.textContent = "Use one absolute path per line. Files must exist on the Picodex host.";
 
       const actions = document.createElement("div");
-      actions.dataset.pocodexManualFileActions = "true";
+      actions.dataset.picodexManualFileActions = "true";
 
       const cancelButton = document.createElement("button");
       cancelButton.type = "button";
@@ -1203,7 +1203,7 @@ export function installBootstrapSettingsImportModule(args: {
         submitButton.textContent = "Resolving...";
 
         try {
-          const result = await callPocodexIpc("host-files/resolve", { paths });
+          const result = await callPicodexIpc("host-files/resolve", { paths });
           const files = getResolvedHostFiles(result);
           close(files);
         } catch (error) {
@@ -1230,7 +1230,7 @@ export function installBootstrapSettingsImportModule(args: {
     });
   }
 
-  async function callPocodexIpc(method: string, params?: unknown): Promise<unknown> {
+  async function callPicodexIpc(method: string, params?: unknown): Promise<unknown> {
     const response = await nativeFetch("/ipc-request", {
       method: "POST",
       headers: {
@@ -1239,7 +1239,7 @@ export function installBootstrapSettingsImportModule(args: {
       cache: "no-store",
       credentials: "same-origin",
       body: JSON.stringify({
-        requestId: `pocodex-ipc-${++nextIpcRequestId}`,
+        requestId: `picodex-ipc-${++nextIpcRequestId}`,
         method,
         params,
       }),
@@ -1487,7 +1487,7 @@ export function installBootstrapSettingsImportModule(args: {
     maybePromptForDesktopImport,
     openDesktopImportDialog,
     openManualFilePickerDialog,
-    callPocodexIpc,
+    callPicodexIpc,
     formatDesktopImportPath,
     getWorkspaceFileRoots,
     getWorkspaceFileDirectoryResult,

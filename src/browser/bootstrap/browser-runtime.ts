@@ -7,16 +7,16 @@ import { installBootstrapStatsigModule } from "./statsig-module.js";
 import { installBootstrapThemeModule } from "./theme-module.js";
 import type { BootstrapScriptConfig, FilesState, WorkspaceFileEntry } from "./types.js";
 
-export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
-  const POCODEX_STYLESHEET_ID = "pocodex-stylesheet";
-  const TOKEN_STORAGE_KEY = "__pocodex_token";
+export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
+  const POCODEX_STYLESHEET_ID = "picodex-stylesheet";
+  const TOKEN_STORAGE_KEY = "__picodex_token";
   const MOBILE_SIDEBAR_MEDIA_QUERY = "(max-width: 640px), (pointer: coarse) and (max-width: 900px)";
   const APPEARANCE_THEME_VALUES = new Set(["light", "dark", "system"]);
-  const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "pocodexEmbed";
+  const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "picodexEmbed";
   const POCODEX_SETTINGS_EMBED_VALUE = "settings-modal";
   const BACKGROUND_SUBAGENTS_STATSIG_GATE = "1221508807";
-  const POCODEX_STATSIG_CLASS_PATCH_MARK = "__pocodexBackgroundSubagentsPatched";
-  const POCODEX_STATSIG_INSTANCE_PATCH_MARK = "__pocodexBackgroundSubagentsInstancePatched";
+  const POCODEX_STATSIG_CLASS_PATCH_MARK = "__picodexBackgroundSubagentsPatched";
+  const POCODEX_STATSIG_INSTANCE_PATCH_MARK = "__picodexBackgroundSubagentsInstancePatched";
 
   const toastHost = document.createElement("div");
   const statusHost = document.createElement("div");
@@ -53,15 +53,15 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
     loadingDirectories: new Set<string>(),
   };
 
-  toastHost.id = "pocodex-toast-host";
-  statusHost.id = "pocodex-status-host";
-  importHost.id = "pocodex-import-host";
-  filesHost.id = "pocodex-files-host";
-  settingsModalHost.id = "pocodex-settings-modal-host";
+  toastHost.id = "picodex-toast-host";
+  statusHost.id = "picodex-status-host";
+  importHost.id = "picodex-import-host";
+  filesHost.id = "picodex-files-host";
+  settingsModalHost.id = "picodex-settings-modal-host";
   importHost.hidden = true;
   filesHost.hidden = true;
   settingsModalHost.hidden = true;
-  document.documentElement.dataset.pocodex = "true";
+  document.documentElement.dataset.picodex = "true";
 
   const statsigApi = installBootstrapStatsigModule({
     backgroundSubagentsStatsigGate: BACKGROUND_SUBAGENTS_STATSIG_GATE,
@@ -90,7 +90,7 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
     isHtmlButtonElement,
     isHtmlDivElement,
     showNotice,
-    callPocodexIpc: settingsImportApi.callPocodexIpc,
+    callPicodexIpc: settingsImportApi.callPicodexIpc,
     formatDesktopImportPath: settingsImportApi.formatDesktopImportPath,
     getStoredToken,
     getWorkspaceFileRoots: settingsImportApi.getWorkspaceFileRoots,
@@ -115,10 +115,10 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
     setConnectionStatus,
     clearConnectionStatus,
     reloadStylesheet,
-    observePocodexThemeHostFetch: themeApi.observePocodexThemeHostFetch,
-    observePocodexThemeHostFetchResponse: themeApi.observePocodexThemeHostFetchResponse,
-    syncPocodexThemeFromPersistedAtomState: themeApi.syncPocodexThemeFromPersistedAtomState,
-    syncPocodexThemeFromPersistedAtomUpdate: themeApi.syncPocodexThemeFromPersistedAtomUpdate,
+    observePicodexThemeHostFetch: themeApi.observePicodexThemeHostFetch,
+    observePicodexThemeHostFetchResponse: themeApi.observePicodexThemeHostFetchResponse,
+    syncPicodexThemeFromPersistedAtomState: themeApi.syncPicodexThemeFromPersistedAtomState,
+    syncPicodexThemeFromPersistedAtomUpdate: themeApi.syncPicodexThemeFromPersistedAtomUpdate,
     openDesktopImportDialog: settingsImportApi.openDesktopImportDialog,
     maybePromptForDesktopImport: settingsImportApi.maybePromptForDesktopImport,
     openManualFilePickerDialog: settingsImportApi.openManualFilePickerDialog,
@@ -131,8 +131,8 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
 
   runWhenDocumentReady(() => {
     ensureStylesheetLink(config.stylesheetHref);
-    themeApi.applyPocodexThemePreference("system");
-    themeApi.installPocodexSystemThemeListener();
+    themeApi.applyPicodexThemePreference("system");
+    themeApi.installPicodexSystemThemeListener();
     ensureHostAttached(toastHost);
     ensureHostAttached(statusHost);
     ensureHostAttached(importHost);
@@ -218,7 +218,7 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
       "error",
       () => {
         nextLink.remove();
-        showNotice("Failed to reload Pocodex CSS.");
+        showNotice("Failed to reload Picodex CSS.");
       },
       { once: true },
     );
@@ -228,7 +228,7 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
   function showNotice(message: string): void {
     const toast = document.createElement("div");
     toast.textContent = message;
-    toast.dataset.pocodexToast = "true";
+    toast.dataset.picodexToast = "true";
     ensureHostAttached(toastHost);
     toastHost.appendChild(toast);
     window.setTimeout(() => {
@@ -243,10 +243,10 @@ export function bootstrapPocodexInBrowser(config: BootstrapScriptConfig): void {
     statusHost.hidden = false;
 
     const card = document.createElement("div");
-    card.dataset.pocodexStatusCard = "true";
+    card.dataset.picodexStatusCard = "true";
 
     const title = document.createElement("strong");
-    title.textContent = "Pocodex";
+    title.textContent = "Picodex";
 
     const body = document.createElement("p");
     body.textContent = message;

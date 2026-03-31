@@ -9,7 +9,7 @@ export interface LoadedPersistedAtomRegistry {
 }
 
 export function derivePersistedAtomRegistryPath(): string {
-  return join(resolveCodexHomePath(), "pocodex", "persisted-atoms.json");
+  return join(resolveCodexHomePath(), "picodex", "persisted-atoms.json");
 }
 
 export async function loadPersistedAtomRegistry(

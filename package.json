@@ -1,5 +1,5 @@
 {
-  "name": "pocodex",
+  "name": "picodex",
   "version": "0.3.0",
   "description": "Serve the real Codex desktop webview in a browser and proxy the host runtime.",
   "keywords": [
@@ -12,10 +12,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/davej/pocodex"
+    "url": "https://github.com/davej/picodex"
   },
   "bin": {
-    "pocodex": "./dist/cli.js"
+    "picodex": "./dist/cli.js"
   },
   "files": [
     "dist/**",
@@ -29,7 +29,7 @@
   "scripts": {
     "build": "rm -rf dist && tsgo -p tsconfig.json && npm run build:static",
     "build:single": "npm run build && node scripts/build-single-file.mjs",
-    "build:static": "mkdir -p dist/assets/styles dist/assets/images && cp src/assets/styles/pocodex.css dist/assets/styles/pocodex.css && cp src/assets/images/import.svg dist/assets/images/import.svg",
+    "build:static": "mkdir -p dist/assets/styles dist/assets/images && cp src/assets/styles/picodex.css dist/assets/styles/picodex.css && cp src/assets/images/import.svg dist/assets/images/import.svg",
     "check": "npm run typecheck",
     "dev": "tsx src/cli.ts",
     "prepare": "simple-git-hooks",

@@ -2,26 +2,26 @@ export function installBootstrapThemeModule(args: {
   appearanceThemeValues: Set<string>;
   parseHostFetchBody: (value: unknown) => Record<string, unknown>;
 }): {
-  installPocodexSystemThemeListener: () => void;
-  applyPocodexThemePreference: (preference: "light" | "dark" | "system") => void;
-  syncPocodexThemeFromPersistedAtomState: (state: Record<string, unknown>) => void;
-  syncPocodexThemeFromPersistedAtomUpdate: (key: unknown, value: unknown) => void;
-  observePocodexThemeHostFetch: (message: Record<string, unknown>) => void;
-  observePocodexThemeHostFetchResponse: (message: Record<string, unknown>) => void;
+  installPicodexSystemThemeListener: () => void;
+  applyPicodexThemePreference: (preference: "light" | "dark" | "system") => void;
+  syncPicodexThemeFromPersistedAtomState: (state: Record<string, unknown>) => void;
+  syncPicodexThemeFromPersistedAtomUpdate: (key: unknown, value: unknown) => void;
+  observePicodexThemeHostFetch: (message: Record<string, unknown>) => void;
+  observePicodexThemeHostFetchResponse: (message: Record<string, unknown>) => void;
 } {
   const { appearanceThemeValues, parseHostFetchBody } = args;
   const pendingAppearanceThemeFetchRequestIds = new Set<string>();
-  let pocodexThemePreference: "light" | "dark" | "system" = "system";
+  let picodexThemePreference: "light" | "dark" | "system" = "system";
 
-  function installPocodexSystemThemeListener(): void {
+  function installPicodexSystemThemeListener(): void {
     if (typeof window.matchMedia !== "function") {
       return;
     }
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const handleChange = () => {
-      if (pocodexThemePreference === "system") {
-        applyPocodexThemePreference("system");
+      if (picodexThemePreference === "system") {
+        applyPicodexThemePreference("system");
       }
     };
 
@@ -35,10 +35,10 @@ export function installBootstrapThemeModule(args: {
     }
   }
 
-  function applyPocodexThemePreference(preference: "light" | "dark" | "system"): void {
-    pocodexThemePreference = preference;
-    const variant = resolvePocodexThemeVariant(preference);
-    document.documentElement.dataset.pocodexThemeVariant = variant;
+  function applyPicodexThemePreference(preference: "light" | "dark" | "system"): void {
+    picodexThemePreference = preference;
+    const variant = resolvePicodexThemeVariant(preference);
+    document.documentElement.dataset.picodexThemeVariant = variant;
     const rootStyle =
       typeof document.documentElement === "object" &&
       document.documentElement !== null &&
@@ -50,7 +50,7 @@ export function installBootstrapThemeModule(args: {
     }
   }
 
-  function resolvePocodexThemeVariant(
+  function resolvePicodexThemeVariant(
     preference: "light" | "dark" | "system",
   ): "light" | "dark" {
     if (preference === "light" || preference === "dark") {
@@ -64,32 +64,32 @@ export function installBootstrapThemeModule(args: {
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   }
 
-  function syncPocodexThemeFromPersistedAtomState(state: Record<string, unknown>): void {
-    const preference = extractPocodexThemePreferenceFromEntries(Object.entries(state));
+  function syncPicodexThemeFromPersistedAtomState(state: Record<string, unknown>): void {
+    const preference = extractPicodexThemePreferenceFromEntries(Object.entries(state));
     if (preference) {
-      applyPocodexThemePreference(preference);
+      applyPicodexThemePreference(preference);
     }
   }
 
-  function syncPocodexThemeFromPersistedAtomUpdate(key: unknown, value: unknown): void {
+  function syncPicodexThemeFromPersistedAtomUpdate(key: unknown, value: unknown): void {
     if (typeof key !== "string") {
       return;
     }
 
-    const preference = extractPocodexThemePreferenceFromEntries([[key, value]]);
+    const preference = extractPicodexThemePreferenceFromEntries([[key, value]]);
     if (preference) {
-      applyPocodexThemePreference(preference);
+      applyPicodexThemePreference(preference);
     }
   }
 
-  function syncPocodexThemeFromGlobalStateValue(value: unknown): void {
-    const preference = normalizePocodexThemePreference(value);
+  function syncPicodexThemeFromGlobalStateValue(value: unknown): void {
+    const preference = normalizePicodexThemePreference(value);
     if (preference) {
-      applyPocodexThemePreference(preference);
+      applyPicodexThemePreference(preference);
     }
   }
 
-  function observePocodexThemeHostFetch(message: Record<string, unknown>): void {
+  function observePicodexThemeHostFetch(message: Record<string, unknown>): void {
     if (message.type !== "fetch" || typeof message.url !== "string") {
       return;
     }
@@ -118,10 +118,10 @@ export function installBootstrapThemeModule(args: {
       return;
     }
 
-    syncPocodexThemeFromGlobalStateValue(body.value);
+    syncPicodexThemeFromGlobalStateValue(body.value);
   }
 
-  function observePocodexThemeHostFetchResponse(message: Record<string, unknown>): void {
+  function observePicodexThemeHostFetchResponse(message: Record<string, unknown>): void {
     if (
       message.type !== "fetch-response" ||
       typeof message.requestId !== "string" ||
@@ -137,14 +137,14 @@ export function installBootstrapThemeModule(args: {
     }
 
     const body = parseHostFetchBody(message.bodyJsonString);
-    syncPocodexThemeFromGlobalStateValue(body.value);
+    syncPicodexThemeFromGlobalStateValue(body.value);
   }
 
-  function extractPocodexThemePreferenceFromEntries(
+  function extractPicodexThemePreferenceFromEntries(
     entries: Array<[string, unknown]>,
   ): "light" | "dark" | "system" | null {
     for (const [key, value] of entries) {
-      const preference = normalizePocodexThemePreference(value);
+      const preference = normalizePicodexThemePreference(value);
       if (!preference) {
         continue;
       }
@@ -163,7 +163,7 @@ export function installBootstrapThemeModule(args: {
     return null;
   }
 
-  function normalizePocodexThemePreference(value: unknown): "light" | "dark" | "system" | null {
+  function normalizePicodexThemePreference(value: unknown): "light" | "dark" | "system" | null {
     const normalizedValue = typeof value === "string" ? value.trim().toLowerCase() : "";
     if (!appearanceThemeValues.has(normalizedValue)) {
       return null;
@@ -173,11 +173,11 @@ export function installBootstrapThemeModule(args: {
   }
 
   return {
-    installPocodexSystemThemeListener,
-    applyPocodexThemePreference,
-    syncPocodexThemeFromPersistedAtomState,
-    syncPocodexThemeFromPersistedAtomUpdate,
-    observePocodexThemeHostFetch,
-    observePocodexThemeHostFetchResponse,
+    installPicodexSystemThemeListener,
+    applyPicodexThemePreference,
+    syncPicodexThemeFromPersistedAtomState,
+    syncPicodexThemeFromPersistedAtomUpdate,
+    observePicodexThemeHostFetch,
+    observePicodexThemeHostFetchResponse,
   };
 }

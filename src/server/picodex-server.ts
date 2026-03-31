@@ -19,7 +19,7 @@ import { getUnsupportedBridgeNotice } from "./native-policy.js";
 import type {
   JsonRecord,
   BrowserToServerEnvelope,
-  PocodexServerOptions,
+  PicodexServerOptions,
   ServerToBrowserEnvelope,
 } from "../core/protocol.js";
 import { routeHostMessage, rewriteRequestIdsForHost } from "../core/request-id.js";
@@ -55,8 +55,8 @@ const TERMINAL_CONTROL_MESSAGE_TYPES = new Set([
 ]);
 const TERMINAL_ATTACH_MESSAGE_TYPES = new Set(["terminal-create", "terminal-attach"]);
 const TERMINAL_STREAM_MESSAGE_TYPES = new Set(["terminal-data", "terminal-error", "terminal-exit"]);
-const TERMINAL_TARGET_BROWSER_SESSION_ID_KEY = "_pocodexBrowserSessionId";
-const TERMINAL_TARGET_BROWSER_TERMINAL_SESSION_ID_KEY = "_pocodexBrowserTerminalSessionId";
+const TERMINAL_TARGET_BROWSER_SESSION_ID_KEY = "_picodexBrowserSessionId";
+const TERMINAL_TARGET_BROWSER_TERMINAL_SESSION_ID_KEY = "_picodexBrowserTerminalSessionId";
 const BROWSER_IPC_BROADCAST_MESSAGE_TYPES = new Set([
   "thread-stream-state-changed",
   "thread-queued-followups-changed",
@@ -95,7 +95,7 @@ const TARGETED_BROWSER_IPC_METHOD_TO_REQUEST_TYPE = new Map<string, string>([
 ]);
 const TARGETED_BROWSER_IPC_TIMEOUT_MS = 30_000;
 
-export class PocodexServer {
+export class PicodexServer {
   private readonly httpServer: HttpServer;
   private readonly wsServer: WebSocketServer;
   private readonly pendingBySocket = new WeakMap<WebSocket, Promise<void>>();
@@ -106,7 +106,7 @@ export class PocodexServer {
   private readonly pendingBrowserIpcRequests = new Map<string, PendingBrowserIpcRequest>();
   private indexHtmlPromise?: Promise<string>;
 
-  constructor(private readonly options: PocodexServerOptions) {
+  constructor(private readonly options: PicodexServerOptions) {
     this.httpServer = createServer((request, response) => {
       void this.handleHttpRequest(request, response);
     });
@@ -151,7 +151,7 @@ export class PocodexServer {
     this.workerSubscriberCounts.clear();
     this.terminalSessionRoutes.clear();
     this.terminalSessionIdsByConversation.clear();
-    this.rejectAllPendingBrowserIpcRequests("Pocodex server is shutting down.");
+    this.rejectAllPendingBrowserIpcRequests("Picodex server is shutting down.");
 
     for (const client of this.wsServer.clients) {
       client.terminate();
@@ -177,7 +177,7 @@ export class PocodexServer {
   getAddress(): AddressInfo {
     const address = this.httpServer.address();
     if (!address || typeof address === "string") {
-      throw new Error("Pocodex server is not listening on a TCP address");
+      throw new Error("Picodex server is not listening on a TCP address");
     }
     return address;
   }
@@ -185,7 +185,7 @@ export class PocodexServer {
   notifyStylesheetReload(versionTag: string): void {
     this.broadcast({
       type: "css_reload",
-      href: `/pocodex.css?v=${encodeURIComponent(versionTag)}`,
+      href: `/picodex.css?v=${encodeURIComponent(versionTag)}`,
     });
   }
 
@@ -232,15 +232,15 @@ export class PocodexServer {
       return;
     }
 
-    if (url.pathname === "/pocodex.css") {
+    if (url.pathname === "/picodex.css") {
       try {
         response.statusCode = 200;
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("Content-Type", "text/css; charset=utf-8");
-        response.end(await this.options.readPocodexStylesheet());
+        response.end(await this.options.readPicodexStylesheet());
       } catch {
         response.statusCode = 500;
-        response.end("Unable to load Pocodex stylesheet");
+        response.end("Unable to load Picodex stylesheet");
       }
       return;
     }
@@ -409,7 +409,7 @@ export class PocodexServer {
     if (this.sessions.get(session.id) !== session) {
       this.send(session.socket, {
         type: "session_revoked",
-        reason: "This Pocodex session is no longer active.",
+        reason: "This Picodex session is no longer active.",
       });
       session.socket.close(4001, "inactive");
       return;
@@ -446,7 +446,7 @@ export class PocodexServer {
       default:
         this.send(session.socket, {
           type: "error",
-          message: `Unknown Pocodex browser message ${(envelope as { type: string }).type}`,
+          message: `Unknown Picodex browser message ${(envelope as { type: string }).type}`,
         });
     }
   }
@@ -657,7 +657,7 @@ export class PocodexServer {
     message: JsonRecord & { type: string },
   ): Promise<void> {
     const requestedLocalSessionId =
-      readNonEmptyString(message.sessionId) ?? `pocodex-terminal:${session.id}:${randomUUID()}`;
+      readNonEmptyString(message.sessionId) ?? `picodex-terminal:${session.id}:${randomUUID()}`;
     const conversationId = readNonEmptyString(message.conversationId);
     const canonicalSessionId =
       session.terminalSessionIdsByLocalSessionId.get(requestedLocalSessionId) ??
@@ -1033,7 +1033,7 @@ export class PocodexServer {
       );
     }
 
-    const internalRequestId = `pocodex-browser-ipc:${randomUUID()}`;
+    const internalRequestId = `picodex-browser-ipc:${randomUUID()}`;
     const responsePromise = new Promise<unknown>((resolve) => {
       const timeout = setTimeout(() => {
         this.pendingBrowserIpcRequests.delete(internalRequestId);

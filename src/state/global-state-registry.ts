@@ -9,7 +9,7 @@ export interface LoadedGlobalStateRegistry {
 }
 
 export function deriveGlobalStateRegistryPath(): string {
-  return join(resolveCodexHomePath(), "pocodex", "global-state.json");
+  return join(resolveCodexHomePath(), "picodex", "global-state.json");
 }
 
 export async function loadGlobalStateRegistry(

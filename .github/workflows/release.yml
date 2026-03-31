@@ -57,8 +57,8 @@ jobs:
           RELEASE_TARGET: ${{ matrix.target }}
         run: |
           mkdir -p release
-          asset_name="pocodex-${RELEASE_TAG}-${RELEASE_TARGET}.js"
-          mv dist/pocodex-single.js "release/${asset_name}"
+          asset_name="picodex-${RELEASE_TAG}-${RELEASE_TARGET}.js"
+          mv dist/picodex-single.js "release/${asset_name}"
           chmod +x "release/${asset_name}"
           (
             cd release

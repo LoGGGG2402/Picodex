@@ -41,7 +41,7 @@ function execFileText(file: string, args: string[], cwd: string): Promise<string
 async function pickDirectoryOnMac(startPath: string): Promise<string | null> {
   const script = [
     "try",
-    `set chosenFolder to choose folder with prompt "Choose a workspace folder for Pocodex." default location POSIX file "${escapeAppleScriptString(startPath)}"`,
+    `set chosenFolder to choose folder with prompt "Choose a workspace folder for Picodex." default location POSIX file "${escapeAppleScriptString(startPath)}"`,
     "return POSIX path of chosenFolder",
     "on error number -128",
     'return ""',
@@ -56,7 +56,7 @@ async function pickDirectoryOnLinux(startPath: string): Promise<string | null> {
   const zenityArgs = [
     "--file-selection",
     "--directory",
-    "--title=Choose a workspace folder for Pocodex",
+    "--title=Choose a workspace folder for Picodex",
     "--filename",
     ensureTrailingSlash(startPath),
   ];
@@ -77,7 +77,7 @@ async function pickDirectoryOnLinux(startPath: string): Promise<string | null> {
   try {
     const stdout = await execFileText(
       "kdialog",
-      ["--getexistingdirectory", startPath, "--title", "Choose a workspace folder for Pocodex"],
+      ["--getexistingdirectory", startPath, "--title", "Choose a workspace folder for Picodex"],
       startPath,
     );
     return normalizeNonEmptyString(stdout);

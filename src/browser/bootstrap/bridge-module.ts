@@ -17,10 +17,10 @@ export function installBootstrapBridgeModule(args: {
   setConnectionStatus: (message: string, options?: { mode?: string }) => void;
   clearConnectionStatus: () => void;
   reloadStylesheet: (href: string) => void;
-  observePocodexThemeHostFetch: (message: Record<string, unknown>) => void;
-  observePocodexThemeHostFetchResponse: (message: Record<string, unknown>) => void;
-  syncPocodexThemeFromPersistedAtomState: (state: Record<string, unknown>) => void;
-  syncPocodexThemeFromPersistedAtomUpdate: (key: unknown, value: unknown) => void;
+  observePicodexThemeHostFetch: (message: Record<string, unknown>) => void;
+  observePicodexThemeHostFetchResponse: (message: Record<string, unknown>) => void;
+  syncPicodexThemeFromPersistedAtomState: (state: Record<string, unknown>) => void;
+  syncPicodexThemeFromPersistedAtomUpdate: (key: unknown, value: unknown) => void;
   openDesktopImportDialog: (mode: "first-run" | "manual") => Promise<void>;
   maybePromptForDesktopImport: () => Promise<void>;
   openManualFilePickerDialog: (title: string) => Promise<unknown[]>;
@@ -37,10 +37,10 @@ export function installBootstrapBridgeModule(args: {
     setConnectionStatus,
     clearConnectionStatus,
     reloadStylesheet,
-    observePocodexThemeHostFetch,
-    observePocodexThemeHostFetchResponse,
-    syncPocodexThemeFromPersistedAtomState,
-    syncPocodexThemeFromPersistedAtomUpdate,
+    observePicodexThemeHostFetch,
+    observePicodexThemeHostFetchResponse,
+    syncPicodexThemeFromPersistedAtomState,
+    syncPicodexThemeFromPersistedAtomUpdate,
     openDesktopImportDialog,
     maybePromptForDesktopImport,
     openManualFilePickerDialog,
@@ -49,7 +49,7 @@ export function installBootstrapBridgeModule(args: {
     isMobileSidebarViewport,
   } = args;
 
-  const TOKEN_STORAGE_KEY = "__pocodex_token";
+  const TOKEN_STORAGE_KEY = "__picodex_token";
   const RETRY_DELAYS_MS = [1000, 2000, 5000] as const;
   const SESSION_CHECK_PATH = "/session-check";
   const workerSubscribers = new Map<string, Set<WorkerMessageListener>>();
@@ -95,7 +95,7 @@ export function installBootstrapBridgeModule(args: {
   }
 
   async function handleLocalHostFetch(message: Record<string, unknown>): Promise<boolean> {
-    observePocodexThemeHostFetch(message);
+    observePicodexThemeHostFetch(message);
 
     if (message.type !== "fetch" || typeof message.requestId !== "string") {
       return false;
@@ -209,26 +209,26 @@ export function installBootstrapBridgeModule(args: {
     return message;
   }
 
-  function handlePocodexBridgeMessage(message: unknown): boolean {
+  function handlePicodexBridgeMessage(message: unknown): boolean {
     if (!isRecord(message) || typeof message.type !== "string") {
       return false;
     }
 
-    observePocodexThemeHostFetchResponse(message);
+    observePicodexThemeHostFetchResponse(message);
 
     if (message.type === "persisted-atom-sync") {
-      syncPocodexThemeFromPersistedAtomState(
+      syncPicodexThemeFromPersistedAtomState(
         isRecord(message.state) ? (message.state as Record<string, unknown>) : {},
       );
       return false;
     }
 
     if (message.type === "persisted-atom-updated") {
-      syncPocodexThemeFromPersistedAtomUpdate(message.key, message.value);
+      syncPicodexThemeFromPersistedAtomUpdate(message.key, message.value);
       return false;
     }
 
-    if (message.type === "pocodex-open-desktop-import-dialog") {
+    if (message.type === "picodex-open-desktop-import-dialog") {
       const mode = message.mode === "first-run" ? "first-run" : "manual";
       void openDesktopImportDialog(mode);
       return true;
@@ -352,7 +352,7 @@ export function installBootstrapBridgeModule(args: {
 
     const token = getStoredToken();
     isConnecting = true;
-    setConnectionStatus(hasConnected ? "Reconnecting to Pocodex..." : "Connecting to Pocodex...");
+    setConnectionStatus(hasConnected ? "Reconnecting to Picodex..." : "Connecting to Picodex...");
 
     const validation = await validateSessionToken(token);
     if (!validation.ok) {
@@ -360,12 +360,12 @@ export function installBootstrapBridgeModule(args: {
       if (validation.reason === "unauthorized") {
         setConnectionStatus(
           token
-            ? "Pocodex rejected this token. Open the exact URL printed by the CLI for the current run."
-            : "Pocodex requires a token. Open the exact URL printed by the CLI for the current run.",
+            ? "Picodex rejected this token. Open the exact URL printed by the CLI for the current run."
+            : "Picodex requires a token. Open the exact URL printed by the CLI for the current run.",
         );
         return;
       }
-      scheduleReconnect("Pocodex is unavailable. Retrying...");
+      scheduleReconnect("Picodex is unavailable. Retrying...");
       return;
     }
 
@@ -394,7 +394,7 @@ export function installBootstrapBridgeModule(args: {
     socket.addEventListener("error", () => {
       if (!hasConnected) {
         setConnectionStatus(
-          "Pocodex could not open its live session. Check the CLI output and the page token.",
+          "Picodex could not open its live session. Check the CLI output and the page token.",
         );
       }
     });
@@ -402,7 +402,7 @@ export function installBootstrapBridgeModule(args: {
     socket.addEventListener("message", (event) => {
       const envelope = parseServerEnvelope(event.data);
       if (!envelope) {
-        showNotice("Pocodex received invalid server data.");
+        showNotice("Picodex received invalid server data.");
         return;
       }
 
@@ -410,7 +410,7 @@ export function installBootstrapBridgeModule(args: {
         case "bridge_message":
           {
             const bridgeMessage = rewriteBridgeMessageForViewport(envelope.message);
-            if (handlePocodexBridgeMessage(bridgeMessage)) {
+            if (handlePicodexBridgeMessage(bridgeMessage)) {
               break;
             }
             dispatchHostMessage(bridgeMessage);
@@ -428,8 +428,8 @@ export function installBootstrapBridgeModule(args: {
           reloadStylesheet(envelope.href);
           break;
         case "session_revoked":
-          showNotice(envelope.reason || "This Pocodex session is no longer available.");
-          setConnectionStatus(envelope.reason || "This Pocodex session is no longer available.");
+          showNotice(envelope.reason || "This Picodex session is no longer available.");
+          setConnectionStatus(envelope.reason || "This Picodex session is no longer available.");
           isClosing = true;
           socket?.close(4001, "revoked");
           break;
@@ -446,8 +446,8 @@ export function installBootstrapBridgeModule(args: {
       if (!shouldReconnect) {
         return;
       }
-      showNotice("Pocodex lost the host connection. Retrying...");
-      scheduleReconnect("Pocodex lost the host connection. Retrying...");
+      showNotice("Picodex lost the host connection. Retrying...");
+      scheduleReconnect("Picodex lost the host connection. Retrying...");
     });
   }
 
@@ -542,7 +542,7 @@ export function installBootstrapBridgeModule(args: {
     },
     subscribeToWorkerMessages: (workerName, callback) => addWorkerSubscriber(workerName, callback),
     showContextMenu: async () => {
-      showNotice("Context menus are not available in Pocodex.");
+      showNotice("Context menus are not available in Picodex.");
     },
     getFastModeRolloutMetrics: async () => ({}),
     triggerSentryTestError: async () => {},

@@ -390,7 +390,7 @@ export function openDesktopImportDialog(
   mode: "first-run" | "manual",
 ): void {
   bridge.emitBridgeMessage({
-    type: "pocodex-open-desktop-import-dialog",
+    type: "picodex-open-desktop-import-dialog",
     mode,
   });
 }

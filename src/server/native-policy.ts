@@ -3,23 +3,23 @@ import type { JsonRecord } from "../core/protocol.js";
 const BLOCKED_PATTERNS: Array<{ pattern: RegExp; notice: string }> = [
   {
     pattern: /badge/i,
-    notice: "Badge updates are not supported in Pocodex.",
+    notice: "Badge updates are not supported in Picodex.",
   },
   {
     pattern: /context-menu/i,
-    notice: "Context menus are not supported in Pocodex.",
+    notice: "Context menus are not supported in Picodex.",
   },
   {
     pattern: /notification/i,
-    notice: "Desktop notifications are not supported in Pocodex.",
+    notice: "Desktop notifications are not supported in Picodex.",
   },
   {
     pattern: /power-save/i,
-    notice: "Power-save controls are not supported in Pocodex.",
+    notice: "Power-save controls are not supported in Picodex.",
   },
   {
     pattern: /window-mode/i,
-    notice: "Window mode controls are not supported in Pocodex.",
+    notice: "Window mode controls are not supported in Picodex.",
   },
 ];
 

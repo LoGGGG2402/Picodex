@@ -1,4 +1,4 @@
-# pocodex
+# picodex
 
 Browser-hosted wrapper around the Codex desktop webview with a direct app-server bridge.
 
@@ -16,15 +16,15 @@ Browser-hosted wrapper around the Codex desktop webview with a direct app-server
 
 ## Single-file launcher
 
-Run `npm run build:single` to generate `dist/pocodex-single.js`.
+Run `npm run build:single` to generate `dist/picodex-single.js`.
 
 That output is a self-extracting Node launcher. It embeds:
 
 - the compiled `dist/` runtime
 - the local `app.asar`
-- the runtime `node_modules` subset needed to execute Pocodex
+- the runtime `node_modules` subset needed to execute Picodex
 
-At startup it extracts itself into the user cache directory and then launches Pocodex with `--asar` pointed at the embedded `app.asar`. `codex` still needs to exist on `PATH`, or you can pass `--codex-bin /path/to/codex`.
+At startup it extracts itself into the user cache directory and then launches Picodex with `--asar` pointed at the embedded `app.asar`. `codex` still needs to exist on `PATH`, or you can pass `--codex-bin /path/to/codex`.
 
 ## GitHub release automation
 
@@ -36,5 +36,5 @@ It builds release assets for:
 - `darwin-x64` on `macos-13`
 - `darwin-arm64` on `macos-14`
 
-The workflow runs automatically when you push a tag like `v0.3.0`, and it can also be started manually with `workflow_dispatch`. Each run publishes GitHub Release assets named like `pocodex-v0.3.0-darwin-arm64.js` plus matching `.sha256` files.
+The workflow runs automatically when you push a tag like `v0.3.0`, and it can also be started manually with `workflow_dispatch`. Each run publishes GitHub Release assets named like `picodex-v0.3.0-darwin-arm64.js` plus matching `.sha256` files.
 The release job also marks the `.js` launcher executable with `chmod +x` and publishes a `.zip` copy with its own checksum.

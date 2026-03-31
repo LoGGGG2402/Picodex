@@ -231,8 +231,8 @@ export const DEFAULT_EXPERIMENTAL_FEATURE_ENABLEMENT: Record<string, boolean> = 
 };
 export const DEFAULT_LOCAL_ENVIRONMENT_FILE_NAME = "environment.toml";
 export const DEFAULT_OPEN_IN_TARGET: OpenInTarget = {
-  id: "pocodex-browser",
-  label: "Pocodex browser",
+  id: "picodex-browser",
+  label: "Picodex browser",
   icon: null,
   available: true,
   default: true,

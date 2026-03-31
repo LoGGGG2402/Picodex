@@ -16,7 +16,7 @@ export function installBootstrapFilesModule(args: {
   isHtmlButtonElement: (value: unknown) => value is HTMLButtonElement;
   isHtmlDivElement: (value: unknown) => value is HTMLDivElement;
   showNotice: (message: string) => void;
-  callPocodexIpc: (method: string, params?: unknown) => Promise<unknown>;
+  callPicodexIpc: (method: string, params?: unknown) => Promise<unknown>;
   formatDesktopImportPath: (path: string) => string;
   getStoredToken: () => string;
   getWorkspaceFileRoots: (result: unknown) => WorkspaceFileRoot[];
@@ -43,7 +43,7 @@ export function installBootstrapFilesModule(args: {
     isHtmlButtonElement,
     isHtmlDivElement,
     showNotice,
-    callPocodexIpc,
+    callPicodexIpc,
     formatDesktopImportPath,
     getStoredToken,
     getWorkspaceFileRoots,
@@ -121,7 +121,7 @@ export function installBootstrapFilesModule(args: {
   }
 
   function maybeInjectFilesToolbarButton(root: Document | Element): void {
-    const existingButton = root.querySelector('[data-pocodex-files-toggle="true"]');
+    const existingButton = root.querySelector('[data-picodex-files-toggle="true"]');
     if (isHtmlButtonElement(existingButton)) {
       syncFilesToggleButton(existingButton);
       return;
@@ -140,7 +140,7 @@ export function installBootstrapFilesModule(args: {
     }
 
     const group = document.createElement("div");
-    group.dataset.pocodexFilesButtonGroup = "true";
+    group.dataset.picodexFilesButtonGroup = "true";
     group.className = anchorGroup.className;
 
     const button = anchorButton.cloneNode(true);
@@ -148,7 +148,7 @@ export function installBootstrapFilesModule(args: {
       return;
     }
 
-    button.dataset.pocodexFilesToggle = "true";
+    button.dataset.picodexFilesToggle = "true";
     button.setAttribute("aria-label", "Toggle files panel");
     button.type = "button";
     button.innerHTML = getFilesToggleIconSvg();
@@ -167,11 +167,11 @@ export function installBootstrapFilesModule(args: {
     const state = filesState.open ? "open" : "closed";
     button.dataset.state = state;
     button.setAttribute("aria-pressed", filesState.open ? "true" : "false");
-    button.classList.toggle("pocodex-files-toggle-active", filesState.open);
+    button.classList.toggle("picodex-files-toggle-active", filesState.open);
   }
 
   function syncAllFilesToggleButtons(): void {
-    document.querySelectorAll('[data-pocodex-files-toggle="true"]').forEach((candidate) => {
+    document.querySelectorAll('[data-picodex-files-toggle="true"]').forEach((candidate) => {
       if (!isHtmlButtonElement(candidate)) {
         return;
       }
@@ -203,7 +203,7 @@ export function installBootstrapFilesModule(args: {
     renderFilesPanel();
 
     try {
-      const result = await callPocodexIpc("workspace-files/list-roots");
+      const result = await callPicodexIpc("workspace-files/list-roots");
       const roots = getWorkspaceFileRoots(result);
       const previousSelectedRoot = filesState.selectedRoot;
       filesState.roots = roots;
@@ -251,7 +251,7 @@ export function installBootstrapFilesModule(args: {
     renderFilesPanel();
 
     try {
-      const result = await callPocodexIpc("workspace-files/list-directory", {
+      const result = await callPicodexIpc("workspace-files/list-directory", {
         root: rootPath,
         path: directoryPath,
       });
@@ -301,7 +301,7 @@ export function installBootstrapFilesModule(args: {
     renderFilesPanel();
 
     try {
-      const result = await callPocodexIpc("workspace-files/read", { path });
+      const result = await callPicodexIpc("workspace-files/read", { path });
       const preview = getWorkspaceFileReadResult(result);
       if (!preview) {
         throw new Error("Workspace file preview response was invalid.");
@@ -443,7 +443,7 @@ export function installBootstrapFilesModule(args: {
     }
 
     try {
-      const result = await callPocodexIpc("workspace-files/search", {
+      const result = await callPicodexIpc("workspace-files/search", {
         query: trimmedQuery,
         root: filesState.selectedRoot,
       });
@@ -580,13 +580,13 @@ export function installBootstrapFilesModule(args: {
 
   function applyFilesExplorerWidth(body: HTMLElement, drawer: HTMLElement): void {
     if (shouldUseResponsiveFilesDrawerWidth()) {
-      body.style.removeProperty("--pocodex-files-explorer-width");
+      body.style.removeProperty("--picodex-files-explorer-width");
       return;
     }
 
     const drawerWidth = Math.round(drawer.getBoundingClientRect().width || getFilesDrawerWidthPx());
     const width = getFilesExplorerWidthPx(drawerWidth);
-    body.style.setProperty("--pocodex-files-explorer-width", `${width}px`);
+    body.style.setProperty("--picodex-files-explorer-width", `${width}px`);
     filesState.explorerWidthPx = width;
   }
 
@@ -612,11 +612,11 @@ export function installBootstrapFilesModule(args: {
         const width = clampFilesDrawerWidth(nextWidth);
         filesState.drawerWidthPx = width;
         drawer.style.width = `${width}px`;
-        const body = drawer.querySelector<HTMLElement>('[data-pocodex-files-body="true"]');
+        const body = drawer.querySelector<HTMLElement>('[data-picodex-files-body="true"]');
         if (body) {
           const explorerWidth = clampFilesExplorerWidth(getFilesExplorerWidthPx(width), width);
           filesState.explorerWidthPx = explorerWidth;
-          body.style.setProperty("--pocodex-files-explorer-width", `${explorerWidth}px`);
+          body.style.setProperty("--picodex-files-explorer-width", `${explorerWidth}px`);
         }
       };
 
@@ -678,7 +678,7 @@ export function installBootstrapFilesModule(args: {
         const nextWidth = clientX - bodyRect.left - FILES_EXPLORER_RESIZE_HANDLE_WIDTH_PX / 2;
         const width = clampFilesExplorerWidth(nextWidth, drawerWidth);
         filesState.explorerWidthPx = width;
-        body.style.setProperty("--pocodex-files-explorer-width", `${width}px`);
+        body.style.setProperty("--picodex-files-explorer-width", `${width}px`);
       };
 
       handleTarget.setPointerCapture(event.pointerId);
@@ -1094,7 +1094,7 @@ export function installBootstrapFilesModule(args: {
 
   function restoreWorkspaceFileSearchFocus(query: string): void {
     window.setTimeout(() => {
-      const input = document.querySelector('[data-pocodex-files-search-input="true"]');
+      const input = document.querySelector('[data-picodex-files-search-input="true"]');
       if (!(input instanceof HTMLInputElement)) {
         return;
       }
@@ -1105,11 +1105,11 @@ export function installBootstrapFilesModule(args: {
 
   function renderWorkspaceFileSearchResults(): HTMLElement {
     const resultList = document.createElement("div");
-    resultList.dataset.pocodexFilesSearchResults = "true";
+    resultList.dataset.picodexFilesSearchResults = "true";
 
     if (filesState.searchLoading) {
       const loading = document.createElement("p");
-      loading.dataset.pocodexFilesEmptyState = "true";
+      loading.dataset.picodexFilesEmptyState = "true";
       loading.textContent = "Searching files...";
       resultList.appendChild(loading);
       return resultList;
@@ -1117,7 +1117,7 @@ export function installBootstrapFilesModule(args: {
 
     if (filesState.searchResults.length === 0) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = `No files matched "${filesState.searchQuery.trim()}".`;
       resultList.appendChild(emptyState);
       return resultList;
@@ -1126,7 +1126,7 @@ export function installBootstrapFilesModule(args: {
     filesState.searchResults.forEach((entry) => {
       const button = document.createElement("button");
       button.type = "button";
-      button.dataset.pocodexFilesSearchResult = "true";
+      button.dataset.picodexFilesSearchResult = "true";
       if (entry.path === filesState.selectedFilePath) {
         button.dataset.selected = "true";
       }
@@ -1299,14 +1299,14 @@ export function installBootstrapFilesModule(args: {
 
   function createWorkspacePreviewLineRow(lineNumberValue: number, contentNode?: Node): HTMLElement {
     const row = document.createElement("div");
-    row.dataset.pocodexFilesPreviewLine = "true";
+    row.dataset.picodexFilesPreviewLine = "true";
 
     const lineNumber = document.createElement("span");
-    lineNumber.dataset.pocodexFilesPreviewLineNumber = "true";
+    lineNumber.dataset.picodexFilesPreviewLineNumber = "true";
     lineNumber.textContent = String(lineNumberValue);
 
     const lineContent = document.createElement("span");
-    lineContent.dataset.pocodexFilesPreviewLineContent = "true";
+    lineContent.dataset.picodexFilesPreviewLineContent = "true";
 
     if (contentNode) {
       lineContent.appendChild(contentNode);
@@ -1386,10 +1386,10 @@ export function installBootstrapFilesModule(args: {
 
   function renderWorkspacePreviewContent(contents: string): HTMLElement {
     const editor = document.createElement("div");
-    editor.dataset.pocodexFilesPreviewEditor = "true";
+    editor.dataset.picodexFilesPreviewEditor = "true";
     const totalLines = getWorkspacePreviewLineCount(contents);
     editor.style.setProperty(
-      "--pocodex-files-line-number-width",
+      "--picodex-files-line-number-width",
       `${String(totalLines).length + 1}ch`,
     );
 
@@ -1428,19 +1428,19 @@ export function installBootstrapFilesModule(args: {
 
   function renderWorkspacePreviewImage(): HTMLElement {
     const stage = document.createElement("div");
-    stage.dataset.pocodexFilesPreviewMedia = "true";
+    stage.dataset.picodexFilesPreviewMedia = "true";
     stage.dataset.kind = "image";
 
     if (!filesState.previewObjectUrl) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = "Image preview is unavailable.";
       stage.appendChild(emptyState);
       return stage;
     }
 
     const image = document.createElement("img");
-    image.dataset.pocodexFilesPreviewImage = "true";
+    image.dataset.picodexFilesPreviewImage = "true";
     image.alt = getWorkspacePreviewFileName();
     image.src = filesState.previewObjectUrl;
     stage.appendChild(image);
@@ -1449,19 +1449,19 @@ export function installBootstrapFilesModule(args: {
 
   function renderWorkspacePreviewPdf(): HTMLElement {
     const stage = document.createElement("div");
-    stage.dataset.pocodexFilesPreviewMedia = "true";
+    stage.dataset.picodexFilesPreviewMedia = "true";
     stage.dataset.kind = "pdf";
 
     if (!filesState.previewObjectUrl) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = "PDF preview is unavailable.";
       stage.appendChild(emptyState);
       return stage;
     }
 
     const frame = document.createElement("iframe");
-    frame.dataset.pocodexFilesPreviewPdf = "true";
+    frame.dataset.picodexFilesPreviewPdf = "true";
     frame.title = getWorkspacePreviewFileName();
     frame.src = filesState.previewObjectUrl;
     stage.appendChild(frame);
@@ -1478,7 +1478,7 @@ export function installBootstrapFilesModule(args: {
     }
 
     const backdrop = document.createElement("div");
-    backdrop.dataset.pocodexFilesBackdrop = "true";
+    backdrop.dataset.picodexFilesBackdrop = "true";
     backdrop.addEventListener("click", (event) => {
       if (event.target !== backdrop) {
         return;
@@ -1487,20 +1487,20 @@ export function installBootstrapFilesModule(args: {
     });
 
     const drawer = document.createElement("aside");
-    drawer.dataset.pocodexFilesDrawer = "true";
+    drawer.dataset.picodexFilesDrawer = "true";
     applyFilesDrawerWidth(drawer);
 
     const resizeHandle = document.createElement("button");
     resizeHandle.type = "button";
-    resizeHandle.dataset.pocodexFilesResizeHandle = "true";
+    resizeHandle.dataset.picodexFilesResizeHandle = "true";
     resizeHandle.setAttribute("aria-label", "Resize files panel");
     installFilesDrawerResizeHandle(resizeHandle, drawer);
 
     const header = document.createElement("div");
-    header.dataset.pocodexFilesHeader = "true";
+    header.dataset.picodexFilesHeader = "true";
 
     const titleGroup = document.createElement("div");
-    titleGroup.dataset.pocodexFilesHeaderCopy = "true";
+    titleGroup.dataset.picodexFilesHeaderCopy = "true";
 
     const title = document.createElement("h2");
     title.textContent = "Files";
@@ -1511,10 +1511,10 @@ export function installBootstrapFilesModule(args: {
     titleGroup.append(title, subtitle);
 
     const headerActions = document.createElement("div");
-    headerActions.dataset.pocodexFilesHeaderActions = "true";
+    headerActions.dataset.picodexFilesHeaderActions = "true";
 
     const rootSelect = document.createElement("select");
-    rootSelect.dataset.pocodexFilesRootSelect = "true";
+    rootSelect.dataset.picodexFilesRootSelect = "true";
     rootSelect.disabled = filesState.roots.length <= 1 || filesState.isRefreshing;
     filesState.roots.forEach((root) => {
       const option = document.createElement("option");
@@ -1547,36 +1547,36 @@ export function installBootstrapFilesModule(args: {
     header.append(titleGroup, headerActions);
 
     const body = document.createElement("div");
-    body.dataset.pocodexFilesBody = "true";
+    body.dataset.picodexFilesBody = "true";
     applyFilesExplorerWidth(body, drawer);
 
     const explorerPanel = document.createElement("section");
-    explorerPanel.dataset.pocodexFilesExplorerPanel = "true";
+    explorerPanel.dataset.picodexFilesExplorerPanel = "true";
 
     const explorerHead = document.createElement("div");
-    explorerHead.dataset.pocodexFilesExplorerHead = "true";
+    explorerHead.dataset.picodexFilesExplorerHead = "true";
 
     const explorerHeadCopy = document.createElement("div");
-    explorerHeadCopy.dataset.pocodexFilesExplorerHeadCopy = "true";
+    explorerHeadCopy.dataset.picodexFilesExplorerHeadCopy = "true";
 
     const explorerHeading = document.createElement("div");
-    explorerHeading.dataset.pocodexFilesHeading = "true";
+    explorerHeading.dataset.picodexFilesHeading = "true";
     explorerHeading.textContent = "Explorer";
 
     const explorerRoot = document.createElement("div");
-    explorerRoot.dataset.pocodexFilesRootLabel = "true";
+    explorerRoot.dataset.picodexFilesRootLabel = "true";
     explorerRoot.textContent = getSelectedWorkspaceRoot()?.label ?? "No workspace";
 
     explorerHeadCopy.append(explorerHeading, explorerRoot);
 
     const explorerSummary = document.createElement("span");
-    explorerSummary.dataset.pocodexFilesExplorerSummary = "true";
+    explorerSummary.dataset.picodexFilesExplorerSummary = "true";
     explorerSummary.textContent = filesState.searchQuery.trim()
       ? `${filesState.searchResults.length} matches`
       : getExplorerSummary();
 
     const explorerActions = document.createElement("div");
-    explorerActions.dataset.pocodexFilesSectionActions = "true";
+    explorerActions.dataset.picodexFilesSectionActions = "true";
 
     const collapseButton = document.createElement("button");
     collapseButton.type = "button";
@@ -1590,7 +1590,7 @@ export function installBootstrapFilesModule(args: {
     explorerHead.append(explorerHeadCopy, explorerActions);
 
     const explorerRootPath = document.createElement("div");
-    explorerRootPath.dataset.pocodexFilesRootPath = "true";
+    explorerRootPath.dataset.picodexFilesRootPath = "true";
     explorerRootPath.textContent = filesState.selectedRoot
       ? formatDesktopImportPath(filesState.selectedRoot)
       : "No workspace root selected.";
@@ -1601,22 +1601,22 @@ export function installBootstrapFilesModule(args: {
     searchInput.spellcheck = false;
     searchInput.placeholder = "Search files in this workspace";
     searchInput.value = filesState.searchQuery;
-    searchInput.dataset.pocodexFilesSearchInput = "true";
+    searchInput.dataset.picodexFilesSearchInput = "true";
     searchInput.addEventListener("input", () => {
       updateWorkspaceFileSearchQuery(searchInput.value);
     });
 
     const tree = document.createElement("div");
-    tree.dataset.pocodexFilesTree = "true";
+    tree.dataset.picodexFilesTree = "true";
 
     if (filesState.roots.length === 0) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = "No workspace roots are available for file browsing.";
       tree.appendChild(emptyState);
     } else if (!filesState.selectedRoot) {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = "Select a workspace root to start browsing files.";
       tree.appendChild(emptyState);
     } else if (filesState.searchQuery.trim()) {
@@ -1629,34 +1629,34 @@ export function installBootstrapFilesModule(args: {
 
     const explorerResizeHandle = document.createElement("button");
     explorerResizeHandle.type = "button";
-    explorerResizeHandle.dataset.pocodexFilesInnerResizeHandle = "true";
+    explorerResizeHandle.dataset.picodexFilesInnerResizeHandle = "true";
     explorerResizeHandle.setAttribute("aria-label", "Resize explorer panel");
     installFilesExplorerResizeHandle(explorerResizeHandle, body, drawer);
 
     const preview = document.createElement("section");
-    preview.dataset.pocodexFilesPreview = "true";
+    preview.dataset.picodexFilesPreview = "true";
 
     const previewHeader = document.createElement("div");
-    previewHeader.dataset.pocodexFilesPreviewHeader = "true";
+    previewHeader.dataset.picodexFilesPreviewHeader = "true";
 
     const previewTitleGroup = document.createElement("div");
-    previewTitleGroup.dataset.pocodexFilesPreviewTitleGroup = "true";
+    previewTitleGroup.dataset.picodexFilesPreviewTitleGroup = "true";
 
     const previewHeading = document.createElement("div");
-    previewHeading.dataset.pocodexFilesHeading = "true";
+    previewHeading.dataset.picodexFilesHeading = "true";
     previewHeading.textContent = "Preview";
 
     const previewTitle = document.createElement("code");
-    previewTitle.dataset.pocodexFilesPreviewTitlePath = "true";
+    previewTitle.dataset.picodexFilesPreviewTitlePath = "true";
     previewTitle.textContent = getActiveWorkspacePreviewPath()
       ? formatDesktopImportPath(getActiveWorkspacePreviewPath() as string)
       : "Select a file from the workspace explorer.";
 
     const previewActions = document.createElement("div");
-    previewActions.dataset.pocodexFilesSectionActions = "true";
+    previewActions.dataset.picodexFilesSectionActions = "true";
 
     const previewMeta = document.createElement("span");
-    previewMeta.dataset.pocodexFilesPreviewMeta = "true";
+    previewMeta.dataset.picodexFilesPreviewMeta = "true";
     previewMeta.textContent = getWorkspacePreviewMetaDescription();
 
     const copyPathButton = document.createElement("button");
@@ -1680,11 +1680,11 @@ export function installBootstrapFilesModule(args: {
     previewHeader.append(previewTitleGroup, previewActions);
 
     const previewBody = document.createElement("div");
-    previewBody.dataset.pocodexFilesPreviewBody = "true";
+    previewBody.dataset.picodexFilesPreviewBody = "true";
 
     if (filesState.previewLoading) {
       const loading = document.createElement("p");
-      loading.dataset.pocodexFilesEmptyState = "true";
+      loading.dataset.picodexFilesEmptyState = "true";
       loading.textContent = "Loading file preview...";
       previewBody.appendChild(loading);
     } else if (getActiveWorkspacePreviewPath()) {
@@ -1696,13 +1696,13 @@ export function installBootstrapFilesModule(args: {
         previewBody.appendChild(renderWorkspacePreviewPdf());
       } else {
         const emptyState = document.createElement("p");
-        emptyState.dataset.pocodexFilesEmptyState = "true";
+        emptyState.dataset.picodexFilesEmptyState = "true";
         emptyState.textContent = "Preview is not available for this file. You can still download it.";
         previewBody.appendChild(emptyState);
       }
     } else {
       const emptyState = document.createElement("p");
-      emptyState.dataset.pocodexFilesEmptyState = "true";
+      emptyState.dataset.picodexFilesEmptyState = "true";
       emptyState.textContent = "Choose a file from the sidebar to inspect its contents here.";
       previewBody.appendChild(emptyState);
     }
@@ -1716,16 +1716,16 @@ export function installBootstrapFilesModule(args: {
 
   function renderWorkspaceDirectoryTree(directoryPath: string, depth: number): HTMLElement {
     const list = document.createElement("ul");
-    list.dataset.pocodexFilesTreeList = "true";
+    list.dataset.picodexFilesTreeList = "true";
 
     if (
       filesState.loadingDirectories.has(directoryPath) &&
       !filesState.directoryEntries.has(directoryPath)
     ) {
       const item = document.createElement("li");
-      item.dataset.pocodexFilesTreeNode = "true";
+      item.dataset.picodexFilesTreeNode = "true";
       const loading = document.createElement("p");
-      loading.dataset.pocodexFilesEmptyState = "true";
+      loading.dataset.picodexFilesEmptyState = "true";
       loading.textContent = "Loading directory...";
       item.appendChild(loading);
       list.appendChild(item);
@@ -1739,19 +1739,19 @@ export function installBootstrapFilesModule(args: {
 
     entries.forEach((entry) => {
       const item = document.createElement("li");
-      item.dataset.pocodexFilesTreeNode = "true";
+      item.dataset.picodexFilesTreeNode = "true";
 
       const row = document.createElement("button");
       row.type = "button";
-      row.dataset.pocodexFilesTreeRow = "true";
+      row.dataset.picodexFilesTreeRow = "true";
       row.dataset.kind = entry.kind;
-      row.style.setProperty("--pocodex-depth", String(depth));
+      row.style.setProperty("--picodex-depth", String(depth));
       if (entry.path === filesState.selectedFilePath) {
         row.dataset.selected = "true";
       }
 
       const chevron = document.createElement("span");
-      chevron.dataset.pocodexFilesTreeChevron = "true";
+      chevron.dataset.picodexFilesTreeChevron = "true";
       chevron.textContent =
         entry.kind === "directory"
           ? filesState.loadingDirectories.has(entry.path) &&
@@ -1763,7 +1763,7 @@ export function installBootstrapFilesModule(args: {
           : "";
 
       const icon = document.createElement("span");
-      icon.dataset.pocodexFilesTreeIcon = "true";
+      icon.dataset.picodexFilesTreeIcon = "true";
       icon.textContent =
         entry.kind === "directory"
           ? filesState.expandedDirectories.has(entry.path)
@@ -1772,7 +1772,7 @@ export function installBootstrapFilesModule(args: {
           : "📄";
 
       const name = document.createElement("span");
-      name.dataset.pocodexFilesTreeName = "true";
+      name.dataset.picodexFilesTreeName = "true";
       name.textContent = entry.name;
 
       row.append(chevron, icon, name);
