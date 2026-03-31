@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, for example v0.3.0"
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ github.event_name }}-${{ github.ref_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux-x64
+          - os: macos-13
+            target: darwin-x64
+          - os: macos-14
+            target: darwin-arm64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build single-file launcher
+        run: npm run build:single
+
+      - name: Prepare release asset
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          RELEASE_TARGET: ${{ matrix.target }}
+        run: |
+          mkdir -p release
+          asset_name="pocodex-${RELEASE_TAG}-${RELEASE_TARGET}.js"
+          mv dist/pocodex-single.js "release/${asset_name}"
+          chmod +x "release/${asset_name}"
+          (
+            cd release
+            zip -9 "${asset_name}.zip" "${asset_name}"
+          )
+          node -e "const fs=require('node:fs'); const crypto=require('node:crypto'); const file=process.argv[1]; const digest=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); fs.writeFileSync(file + '.sha256', digest + '  ' + file.split('/').pop() + '\n');" "release/${asset_name}"
+          node -e "const fs=require('node:fs'); const crypto=require('node:crypto'); const file=process.argv[1]; const digest=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'); fs.writeFileSync(file + '.sha256', digest + '  ' + file.split('/').pop() + '\n');" "release/${asset_name}.zip"
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: release-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download built artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Show release payload
+        run: ls -lh release
+
+      - name: Resolve release metadata
+        id: meta
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          echo "tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "name=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update GitHub release
+        uses: softprops/action-gh-release@v2.5.0
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.meta.outputs.name }}
+          generate_release_notes: true
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*

@@ -28,7 +28,8 @@
   "type": "module",
   "scripts": {
     "build": "rm -rf dist && tsgo -p tsconfig.json && npm run build:static",
-    "build:static": "mkdir -p dist/images && cp src/assets/styles/pocodex.css dist/pocodex.css && cp src/assets/images/import.svg dist/images/import.svg",
+    "build:single": "npm run build && node scripts/build-single-file.mjs",
+    "build:static": "mkdir -p dist/assets/styles dist/assets/images && cp src/assets/styles/pocodex.css dist/assets/styles/pocodex.css && cp src/assets/images/import.svg dist/assets/images/import.svg",
     "check": "npm run typecheck",
     "dev": "tsx src/cli.ts",
     "prepare": "simple-git-hooks",
