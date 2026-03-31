@@ -176,6 +176,7 @@ interface PendingLocalRequest {
 interface SessionSubagentThreadSpawnRecord {
   parent_thread_id: string;
   depth: number | null;
+  agent_path?: string | null;
   agent_nickname: string | null;
   agent_role: string | null;
 }
@@ -198,7 +199,7 @@ interface SessionThreadIndexRecord {
 
 interface SessionSyntheticCollabCallRecord {
   timestampMs: number | null;
-  agentId: string;
+  agentId: string | null;
   agentNickname: string | null;
   agentRole: string | null;
   prompt: string | null;
@@ -208,6 +209,11 @@ interface SessionSyntheticCollabCallRecord {
   status: "inProgress" | "completed";
   agentStateStatus: "running" | "completed";
   agentStateMessage: string | null;
+  receiverThread: JsonRecord | null;
+}
+
+interface ResolvedSessionSyntheticCollabCallRecord extends SessionSyntheticCollabCallRecord {
+  agentId: string;
 }
 
 interface ThreadListRequestParams {
@@ -3656,14 +3662,23 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
 
     if (Array.isArray(payload.turns) && typeof payload.id === "string") {
       const syntheticCollabCalls = await this.readSessionSyntheticCollabCalls(threadPath);
-      const enrichedTurns = injectSyntheticCollabToolCalls(payload.turns, payload.id, syntheticCollabCalls);
+      const resolvedSyntheticCollabCalls = await this.resolveSessionSyntheticCollabCalls(
+        syntheticCollabCalls,
+        payload.id,
+        isArchivedSessionPath(threadPath),
+      );
+      const enrichedTurns = injectSyntheticCollabToolCalls(
+        payload.turns,
+        payload.id,
+        resolvedSyntheticCollabCalls,
+      );
       if (!arraysReferenceEqual(payload.turns, enrichedTurns)) {
         nextPayload.turns = enrichedTurns;
         changed = true;
         debugLog("app-server", "injected synthetic collab tool calls", {
           threadId: payload.id,
           sessionPath: threadPath,
-          syntheticCollabCallCount: syntheticCollabCalls.length,
+          syntheticCollabCallCount: resolvedSyntheticCollabCalls.length,
         });
       }
     }
@@ -3697,6 +3712,99 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     const pending = this.loadSessionSyntheticCollabCalls(normalizedPath);
     this.sessionSyntheticCollabCallCache.set(normalizedPath, pending);
     return pending;
+  }
+
+  private async resolveSessionSyntheticCollabCalls(
+    collabCalls: readonly SessionSyntheticCollabCallRecord[],
+    parentThreadId: string,
+    archived: boolean,
+  ): Promise<ResolvedSessionSyntheticCollabCallRecord[]> {
+    if (collabCalls.length === 0) {
+      return [];
+    }
+
+    const indexedSessions = (await this.listIndexedSubagentSessions(archived))
+      .filter((record) => record.parentThreadId === parentThreadId)
+      .sort((left, right) => {
+        const leftTimestamp = left.timestamp ?? Number.POSITIVE_INFINITY;
+        const rightTimestamp = right.timestamp ?? Number.POSITIVE_INFINITY;
+        if (leftTimestamp !== rightTimestamp) {
+          return leftTimestamp - rightTimestamp;
+        }
+        return left.threadId.localeCompare(right.threadId);
+      });
+
+    const usedAgentIds = new Set(
+      collabCalls
+        .map((call) => call.agentId)
+        .filter((agentId): agentId is string => typeof agentId === "string"),
+    );
+
+    const unresolvedCalls = collabCalls
+      .map((call, index) => ({ call, index }))
+      .filter(({ call }) => call.agentId === null)
+      .sort((left, right) => {
+        const leftTimestamp = left.call.timestampMs ?? Number.POSITIVE_INFINITY;
+        const rightTimestamp = right.call.timestampMs ?? Number.POSITIVE_INFINITY;
+        if (leftTimestamp !== rightTimestamp) {
+          return leftTimestamp - rightTimestamp;
+        }
+        return left.index - right.index;
+      });
+
+    const resolvedCalls = [...collabCalls];
+    for (const { call, index } of unresolvedCalls) {
+      const expectedTimestampSeconds =
+        call.timestampMs === null ? null : Math.floor(call.timestampMs / 1000) - 5;
+      let matchIndex = indexedSessions.findIndex(
+        (record) =>
+          !usedAgentIds.has(record.threadId) &&
+          (expectedTimestampSeconds === null ||
+            record.timestamp === null ||
+            record.timestamp >= expectedTimestampSeconds),
+      );
+      if (matchIndex < 0) {
+        matchIndex = indexedSessions.findIndex((record) => !usedAgentIds.has(record.threadId));
+      }
+      if (matchIndex < 0) {
+        continue;
+      }
+
+      const matchedSession = indexedSessions[matchIndex];
+      usedAgentIds.add(matchedSession.threadId);
+      resolvedCalls[index] = {
+        ...call,
+        agentId: matchedSession.threadId,
+      };
+    }
+
+    const resolvedAgentIds = uniqueStrings(
+      resolvedCalls
+        .map((call) => call.agentId)
+        .filter((agentId): agentId is string => typeof agentId === "string"),
+    );
+    if (resolvedAgentIds.length === 0) {
+      return [];
+    }
+
+    const threadEntries = await Promise.all(
+      resolvedAgentIds.map(async (agentId) => [agentId, await this.readThreadRecordById(agentId)] as const),
+    );
+    const threadByAgentId = new Map<string, JsonRecord | null>(threadEntries);
+
+    return resolvedCalls
+      .filter(isResolvedSyntheticCollabCall)
+      .map((call) => {
+        const receiverThread = threadByAgentId.get(call.agentId) ?? null;
+        const threadNickname = receiverThread ? normalizeNonEmptyString(receiverThread.agentNickname) : null;
+        const threadRole = receiverThread ? normalizeNonEmptyString(receiverThread.agentRole) : null;
+        return {
+          ...call,
+          agentNickname: call.agentNickname ?? threadNickname,
+          agentRole: call.agentRole ?? threadRole,
+          receiverThread,
+        };
+      });
   }
 
   private async augmentThreadListPayload(
@@ -3759,7 +3867,9 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       compareThreadListRecords(left, right, params.sortKey),
     );
     const limitedThreads =
-      params.limit !== null && mergedThreads.length > params.limit
+      params.limit !== null &&
+      mergedThreads.length > params.limit &&
+      supplementalThreads.length === 0
         ? mergedThreads.slice(0, params.limit)
         : mergedThreads;
 
@@ -3887,7 +3997,8 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       if (!isJsonRecord(response) || !isJsonRecord(response.thread)) {
         return null;
       }
-      return response.thread;
+      const enrichedThread = await this.enrichThreadRecord(response.thread);
+      return isJsonRecord(enrichedThread) ? enrichedThread : null;
     } catch {
       return null;
     }
@@ -4369,6 +4480,7 @@ function parseSessionSubagentMetadata(payload: unknown): SessionSubagentMetadata
   const agentRole =
     normalizeNonEmptyString(metadata.agent_role) ??
     normalizeNonEmptyString(threadSpawn?.agent_role);
+  const agentPath = normalizeNonEmptyString(threadSpawn?.agent_path);
 
   return {
     source: {
@@ -4376,6 +4488,7 @@ function parseSessionSubagentMetadata(payload: unknown): SessionSubagentMetadata
         thread_spawn: {
           parent_thread_id: parentThreadId,
           depth: normalizeInteger(threadSpawn?.depth),
+          agent_path: agentPath,
           agent_nickname: agentNickname,
           agent_role: agentRole,
         },
@@ -4426,6 +4539,7 @@ function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCol
       status: "inProgress" | "completed";
       agentStateStatus: "running" | "completed";
       agentStateMessage: string | null;
+      receiverThread: JsonRecord | null;
     }
   >();
   const agentIdToCallIds = new Map<string, string[]>();
@@ -4471,12 +4585,15 @@ function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCol
           status: "inProgress",
           agentStateStatus: "running",
           agentStateMessage: null,
+          receiverThread: null,
         });
         continue;
       }
 
       if (functionName === "close_agent") {
-        const targetAgentId = normalizeNonEmptyString(argumentsPayload.target);
+        const targetAgentId =
+          normalizeNonEmptyString(argumentsPayload.id) ??
+          normalizeNonEmptyString(argumentsPayload.target);
         if (!targetAgentId) {
           continue;
         }
@@ -4505,12 +4622,16 @@ function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCol
       const outputPayload = safeParseJsonString(payload.output);
       if (pending) {
         const agentId = isJsonRecord(outputPayload)
-          ? normalizeNonEmptyString(outputPayload.agent_id)
+          ? normalizeNonEmptyString(outputPayload.agent_id) ??
+            normalizeNonEmptyString(outputPayload.id) ??
+            normalizeNonEmptyString(outputPayload.agent_path)
           : null;
         if (agentId) {
           pending.agentId = agentId;
           pending.agentNickname =
-            normalizeNonEmptyString((outputPayload as JsonRecord).nickname) ?? pending.agentNickname;
+            normalizeNonEmptyString((outputPayload as JsonRecord).nickname) ??
+            normalizeNonEmptyString((outputPayload as JsonRecord).agent_nickname) ??
+            pending.agentNickname;
           const existing = agentIdToCallIds.get(agentId) ?? [];
           if (!existing.includes(callId)) {
             existing.push(callId);
@@ -4549,7 +4670,9 @@ function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCol
     }
 
     const notification = extractSubagentNotificationPayload(payload.content);
-    const agentId = normalizeNonEmptyString(notification?.agent_path);
+    const agentId =
+      normalizeNonEmptyString(notification?.agent_id) ??
+      normalizeNonEmptyString(notification?.agent_path);
     const statusPayload = notification && isJsonRecord(notification.status) ? notification.status : null;
     if (!agentId || !statusPayload) {
       continue;
@@ -4570,27 +4693,26 @@ function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCol
     }
   }
 
-  return [...pendingCalls.values()]
-    .filter((record): record is SessionSyntheticCollabCallRecord => record.agentId !== null)
-    .map((record) => ({
-      timestampMs: record.timestampMs,
-      agentId: record.agentId,
-      agentNickname: record.agentNickname,
-      agentRole: record.agentRole,
-      prompt: record.prompt,
-      model: record.model,
-      reasoningEffort: record.reasoningEffort,
-      tool: record.tool,
-      status: record.status,
-      agentStateStatus: record.agentStateStatus,
-      agentStateMessage: record.agentStateMessage,
-    }));
+  return [...pendingCalls.values()].map((record) => ({
+    timestampMs: record.timestampMs,
+    agentId: record.agentId,
+    agentNickname: record.agentNickname,
+    agentRole: record.agentRole,
+    prompt: record.prompt,
+    model: record.model,
+    reasoningEffort: record.reasoningEffort,
+    tool: record.tool,
+    status: record.status,
+    agentStateStatus: record.agentStateStatus,
+    agentStateMessage: record.agentStateMessage,
+    receiverThread: record.receiverThread,
+  }));
 }
 
 function injectSyntheticCollabToolCalls(
   turns: unknown[],
   senderThreadId: string,
-  collabCalls: readonly SessionSyntheticCollabCallRecord[],
+  collabCalls: readonly ResolvedSessionSyntheticCollabCallRecord[],
 ): unknown[] {
   if (turns.length === 0 || collabCalls.length === 0) {
     return turns;
@@ -4659,7 +4781,7 @@ function findBestSyntheticTurnIndex(turns: readonly unknown[], timestampMs: numb
 
 function buildSyntheticCollabToolCall(
   senderThreadId: string,
-  collabCall: SessionSyntheticCollabCallRecord,
+  collabCall: ResolvedSessionSyntheticCollabCallRecord,
 ): JsonRecord {
   return {
     id: `pocodex-collab-agent-${collabCall.agentId}`,
@@ -4671,7 +4793,7 @@ function buildSyntheticCollabToolCall(
     receiverThreads: [
       {
         threadId: collabCall.agentId,
-        thread: null,
+        thread: collabCall.receiverThread,
       },
     ],
     prompt: collabCall.prompt ?? "",
@@ -4686,6 +4808,12 @@ function buildSyntheticCollabToolCall(
       },
     },
   };
+}
+
+function isResolvedSyntheticCollabCall(
+  call: SessionSyntheticCollabCallRecord,
+): call is ResolvedSessionSyntheticCollabCallRecord {
+  return typeof call.agentId === "string" && call.agentId.length > 0;
 }
 
 function hasSyntheticCollabToolCall(items: readonly unknown[], agentId: string): boolean {
@@ -4956,6 +5084,10 @@ function hasSubagentThreadSource(source: unknown): boolean {
     isJsonRecord(source.subAgent.thread_spawn) &&
     typeof source.subAgent.thread_spawn.parent_thread_id === "string"
   );
+}
+
+function isArchivedSessionPath(sessionPath: string): boolean {
+  return sessionPath.includes(`${sep}archived_sessions${sep}`);
 }
 
 function extractThreadSessionPath(thread: JsonRecord): string | null {
