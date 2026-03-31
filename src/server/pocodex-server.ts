@@ -14,15 +14,15 @@ import { randomUUID } from "node:crypto";
 import mimeTypes from "mime-types";
 import { WebSocket, WebSocketServer } from "ws";
 
-import { debugLog, warnOnceLog } from "./debug.js";
+import { debugLog, warnOnceLog } from "../core/debug.js";
 import { getUnsupportedBridgeNotice } from "./native-policy.js";
 import type {
   JsonRecord,
   BrowserToServerEnvelope,
   PocodexServerOptions,
   ServerToBrowserEnvelope,
-} from "./protocol.js";
-import { routeHostMessage, rewriteRequestIdsForHost } from "./request-id.js";
+} from "../core/protocol.js";
+import { routeHostMessage, rewriteRequestIdsForHost } from "../core/request-id.js";
 
 interface BrowserSession {
   id: string;

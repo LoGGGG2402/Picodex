@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 
 import type { IDisposable, IPty } from "node-pty";
 
-import type { JsonRecord } from "./protocol.js";
+import type { JsonRecord } from "../core/protocol.js";
 
 const DEFAULT_TERMINAL_COLS = 80;
 const DEFAULT_TERMINAL_ROWS = 24;

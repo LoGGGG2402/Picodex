@@ -4,7 +4,7 @@ import { Worker } from "node:worker_threads";
 
 import { ensureCodexDesktopWorkerScript, type CodexDesktopWorkerScript } from "./codex-bundle.js";
 import { resolveCodexDesktopPaths } from "./codex-installation.js";
-import { debugLog } from "./debug.js";
+import { debugLog } from "../core/debug.js";
 
 interface WorkerResponseResultError {
   message: string;

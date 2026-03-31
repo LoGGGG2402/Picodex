@@ -1,4 +1,4 @@
-import type { JsonRecord } from "./protocol.js";
+import type { JsonRecord } from "../core/protocol.js";
 
 const BLOCKED_PATTERNS: Array<{ pattern: RegExp; notice: string }> = [
   {

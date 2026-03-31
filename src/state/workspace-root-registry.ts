@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { resolveCodexHomePath } from "./codex-home.js";
+import { resolveCodexHomePath } from "../desktop/codex-home.js";
 
 export interface WorkspaceRootRegistryState {
   roots: string[];

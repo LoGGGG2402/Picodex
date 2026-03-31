@@ -1,25 +1,25 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { resolveCodexHomePath } from "./codex-home.js";
+import { resolveCodexHomePath } from "../desktop/codex-home.js";
 
-export interface LoadedPersistedAtomRegistry {
+export interface LoadedGlobalStateRegistry {
   found: boolean;
   state: Record<string, unknown>;
 }
 
-export function derivePersistedAtomRegistryPath(): string {
-  return join(resolveCodexHomePath(), "pocodex", "persisted-atoms.json");
+export function deriveGlobalStateRegistryPath(): string {
+  return join(resolveCodexHomePath(), "pocodex", "global-state.json");
 }
 
-export async function loadPersistedAtomRegistry(
+export async function loadGlobalStateRegistry(
   registryPath: string,
-): Promise<LoadedPersistedAtomRegistry> {
+): Promise<LoadedGlobalStateRegistry> {
   try {
     const raw = await readFile(registryPath, "utf8");
     return {
       found: true,
-      state: parsePersistedAtomRegistry(raw),
+      state: parseGlobalStateRegistry(raw),
     };
   } catch (error) {
     if (isMissingFileError(error)) {
@@ -32,7 +32,7 @@ export async function loadPersistedAtomRegistry(
   }
 }
 
-export async function savePersistedAtomRegistry(
+export async function saveGlobalStateRegistry(
   registryPath: string,
   state: Record<string, unknown>,
 ): Promise<void> {
@@ -42,7 +42,7 @@ export async function savePersistedAtomRegistry(
     `${JSON.stringify(
       {
         version: 1,
-        atoms: state,
+        state,
       },
       null,
       2,
@@ -51,7 +51,7 @@ export async function savePersistedAtomRegistry(
   );
 }
 
-function parsePersistedAtomRegistry(raw: string): Record<string, unknown> {
+function parseGlobalStateRegistry(raw: string): Record<string, unknown> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -59,11 +59,11 @@ function parsePersistedAtomRegistry(raw: string): Record<string, unknown> {
     return {};
   }
 
-  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.atoms)) {
+  if (!isJsonRecord(parsed) || !isJsonRecord(parsed.state)) {
     return {};
   }
 
-  return { ...parsed.atoms };
+  return { ...parsed.state };
 }
 
 function isJsonRecord(value: unknown): value is Record<string, unknown> {

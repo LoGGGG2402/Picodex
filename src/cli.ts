@@ -7,14 +7,14 @@ import { basename, dirname, join } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { AppServerBridge } from "./lib/app-server-bridge.js";
-import { loadCodexBundle } from "./lib/codex-bundle.js";
-import { deriveDefaultAppPath, resolveCodexDesktopPaths } from "./lib/codex-installation.js";
-import { renderBootstrapScript } from "./lib/bootstrap-script.js";
-import { patchIndexHtml } from "./lib/html-patcher.js";
-import type { SentryInitOptions, ServeCommandOptions } from "./lib/protocol.js";
-import { getServeUrls } from "./lib/serve-url.js";
-import { PocodexServer } from "./lib/server.js";
+import { AppServerBridge } from "./bridge/index.js";
+import { loadCodexBundle } from "./desktop/codex-bundle.js";
+import { deriveDefaultAppPath, resolveCodexDesktopPaths } from "./desktop/codex-installation.js";
+import { renderBootstrapScript } from "./browser/bootstrap/index.js";
+import { patchIndexHtml } from "./server/html-patcher.js";
+import type { SentryInitOptions, ServeCommandOptions } from "./core/protocol.js";
+import { getServeUrls } from "./server/serve-url.js";
+import { PocodexServer } from "./server/pocodex-server.js";
 
 const DEFAULT_LISTEN = "127.0.0.1:8787";
 const POCODEX_STYLESHEET_HREF = "/pocodex.css";
@@ -48,8 +48,8 @@ async function main(): Promise<void> {
     appAsarPath: options.appAsarPath,
     codexCliPath: options.codexCliPath,
   });
-  const pocodexCssPath = fileURLToPath(new URL("./pocodex.css", import.meta.url));
-  const importIconSvgPath = fileURLToPath(new URL("./images/import.svg", import.meta.url));
+  const pocodexCssPath = fileURLToPath(new URL("./assets/styles/pocodex.css", import.meta.url));
+  const importIconSvgPath = fileURLToPath(new URL("./assets/images/import.svg", import.meta.url));
   const bundle = await loadCodexBundle(resolvedCodexPaths);
   const highlightModuleHref = await resolveHighlightModuleHref(bundle.webviewRoot);
   const relay = await AppServerBridge.connect({
