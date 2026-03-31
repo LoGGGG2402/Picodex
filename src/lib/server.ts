@@ -14,7 +14,7 @@ import { randomUUID } from "node:crypto";
 import mimeTypes from "mime-types";
 import { WebSocket, WebSocketServer } from "ws";
 
-import { debugLog } from "./debug.js";
+import { debugLog, warnOnceLog } from "./debug.js";
 import { getUnsupportedBridgeNotice } from "./native-policy.js";
 import type {
   JsonRecord,
@@ -495,6 +495,17 @@ export class PocodexServer {
         message,
         blockedNotice,
       });
+      if (isJsonRecord(message) && typeof message.type === "string") {
+        warnOnceLog(
+          "server",
+          `blocked-browser-bridge:${message.type}`,
+          "blocked browser bridge message",
+          {
+            type: message.type,
+            blockedNotice,
+          },
+        );
+      }
       // this.send(session.socket, {
       //   type: "client_notice",
       //   message: blockedNotice,

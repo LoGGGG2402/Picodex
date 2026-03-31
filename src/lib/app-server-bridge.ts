@@ -18,7 +18,7 @@ import {
   DefaultCodexDesktopGitWorkerBridge,
   type CodexDesktopGitWorkerBridge,
 } from "./codex-desktop-git-worker.js";
-import { debugLog } from "./debug.js";
+import { debugLog, warnOnceLog } from "./debug.js";
 import type { HostBridge, JsonRecord } from "./protocol.js";
 import { deriveCodexCliBinaryPath } from "./startup-errors.js";
 import {
@@ -88,6 +88,11 @@ interface AppServerFetchCancel {
 
 interface AppServerMcpRequestEnvelope {
   type: "mcp-request";
+  request?: JsonRpcRequest;
+}
+
+interface AppServerMcpNotificationEnvelope {
+  type: "mcp-notification";
   request?: JsonRpcRequest;
 }
 
@@ -191,6 +196,20 @@ interface SessionThreadIndexRecord {
   timestamp: number | null;
 }
 
+interface SessionSyntheticCollabCallRecord {
+  timestampMs: number | null;
+  agentId: string;
+  agentNickname: string | null;
+  agentRole: string | null;
+  prompt: string | null;
+  model: string | null;
+  reasoningEffort: string | null;
+  tool: string;
+  status: "inProgress" | "completed";
+  agentStateStatus: "running" | "completed";
+  agentStateMessage: string | null;
+}
+
 interface ThreadListRequestParams {
   archived: boolean;
   limit: number | null;
@@ -240,6 +259,15 @@ const CONFIGURATION_STORAGE_PREFIX = "configuration:";
 const WORKTREE_CONFIG_VALUE_PREFIX = "worktree-config-value:";
 const PREFERRED_OPEN_TARGET_KEY = "preferred-open-target";
 const AUTO_TOP_UP_SETTINGS_KEY = "usage-auto-top-up";
+const EXPERIMENTAL_FEATURES_STATE_KEY = "experimental-features";
+const DEFAULT_EXPERIMENTAL_FEATURE_ENABLEMENT: Record<string, boolean> = {
+  multi_agent: true,
+  apps: false,
+  plugins: false,
+  tool_call_mcp_elicitation: false,
+  tool_search: false,
+  tool_suggest: false,
+};
 const DEFAULT_LOCAL_ENVIRONMENT_FILE_NAME = "environment.toml";
 const DEFAULT_OPEN_IN_TARGET: OpenInTarget = {
   id: "pocodex-browser",
@@ -281,6 +309,11 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     Promise<SessionSubagentMetadata | null>
   >();
   private readonly sessionThreadIndexCache = new Map<string, Promise<SessionThreadIndexRecord | null>>();
+  private readonly sessionSyntheticCollabCallCache = new Map<
+    string,
+    Promise<SessionSyntheticCollabCallRecord[]>
+  >();
+  private readonly syntheticCollabHydrationTimers = new Set<NodeJS.Timeout>();
   private readonly workspaceRoots = new Set<string>();
   private readonly workspaceRootLabels = new Map<string, string>();
   private readonly fuzzyFileSearchSessions = new Map<string, FuzzyFileSearchSession>();
@@ -297,6 +330,230 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
   private isClosing = false;
   private isInitialized = false;
   private connectionState: "connecting" | "connected" | "disconnected" = "connecting";
+  private readonly droppedBrowserBridgeMessageTypes = new Set([
+    "copy-conversation-path",
+    "copy-working-directory",
+    "copy-session-id",
+    "copy-deeplink",
+    "cancel-fetch-stream",
+    "desktop-notification-hide",
+    "desktop-notification-show",
+    "find-in-thread",
+    "hotkey-window-enabled-changed",
+    "log-message",
+    "navigate-back",
+    "navigate-forward",
+    "navigate-to-route",
+    "new-chat",
+    "power-save-blocker-set",
+    "rename-thread",
+    "serverRequest/resolved",
+    "subagent-thread-opened",
+    "thread-archived",
+    "thread-queued-followups-changed",
+    "thread-stream-state-changed",
+    "thread-unarchived",
+    "toggle-diff-panel",
+    "toggle-sidebar",
+    "toggle-terminal",
+    "toggle-thread-pin",
+    "trace-recording-state-changed",
+    "trace-recording-uploaded",
+    "view-focused",
+    "window-fullscreen-changed",
+    "electron-set-badge-count",
+    "add-context-file",
+  ]);
+  private readonly localBrowserBridgeHandlers = new Map<
+    string,
+    (message: JsonRecord & { type: string }) => Promise<void> | void
+  >([
+    [
+      "ready",
+      () => {
+        this.emitConnectionState();
+      },
+    ],
+    [
+      "persisted-atom-sync-request",
+      () => {
+        this.emit("bridge_message", {
+          type: "persisted-atom-sync",
+          state: Object.fromEntries(this.persistedAtoms),
+        });
+      },
+    ],
+    [
+      "persisted-atom-update",
+      (message) => {
+        this.handlePersistedAtomUpdate(message as unknown as PersistedAtomUpdateMessage);
+      },
+    ],
+    [
+      "shared-object-subscribe",
+      (message) => {
+        this.handleSharedObjectSubscribe(message);
+      },
+    ],
+    [
+      "shared-object-unsubscribe",
+      (message) => {
+        this.handleSharedObjectUnsubscribe(message);
+      },
+    ],
+    [
+      "shared-object-set",
+      (message) => {
+        this.handleSharedObjectSet(message);
+      },
+    ],
+    [
+      "archive-thread",
+      async (message) => {
+        await this.handleThreadArchive(message, "thread/archive");
+      },
+    ],
+    [
+      "unarchive-thread",
+      async (message) => {
+        await this.handleThreadArchive(message, "thread/unarchive");
+      },
+    ],
+    [
+      "thread-role-request",
+      (message) => {
+        this.handleThreadRoleRequest(message as unknown as TopLevelRequestMessage);
+      },
+    ],
+    [
+      "electron-onboarding-pick-workspace-or-create-default",
+      async () => {
+        await this.handleOnboardingPickWorkspaceOrCreateDefault();
+      },
+    ],
+    [
+      "electron-onboarding-skip-workspace",
+      async () => {
+        await this.handleOnboardingSkipWorkspace();
+      },
+    ],
+    [
+      "electron-pick-workspace-root-option",
+      () => {
+        this.openDesktopImportDialog("manual");
+      },
+    ],
+    [
+      "electron-add-new-workspace-root-option",
+      () => {
+        this.openDesktopImportDialog("manual");
+      },
+    ],
+    [
+      "electron-update-workspace-root-options",
+      async (message) => {
+        await this.handleWorkspaceRootsUpdated(message);
+      },
+    ],
+    [
+      "electron-set-active-workspace-root",
+      async (message) => {
+        await this.handleSetActiveWorkspaceRoot(message);
+      },
+    ],
+    [
+      "electron-rename-workspace-root-option",
+      async (message) => {
+        await this.handleRenameWorkspaceRootOption(message);
+      },
+    ],
+    [
+      "mcp-request",
+      async (message) => {
+        await this.handleMcpRequest(message as unknown as AppServerMcpRequestEnvelope);
+      },
+    ],
+    [
+      "mcp-notification",
+      async (message) => {
+        await this.handleMcpNotification(message as unknown as AppServerMcpNotificationEnvelope);
+      },
+    ],
+    [
+      "mcp-response",
+      async (message) => {
+        await this.handleMcpResponse(message as unknown as AppServerMcpResponseEnvelope);
+      },
+    ],
+    [
+      "terminal-create",
+      async (message) => {
+        await this.terminalManager.handleCreate(message as TerminalCreateMessage);
+      },
+    ],
+    [
+      "terminal-attach",
+      async (message) => {
+        await this.terminalManager.handleAttach(message as TerminalAttachMessage);
+      },
+    ],
+    [
+      "terminal-write",
+      (message) => {
+        this.terminalManager.write(message as TerminalWriteMessage);
+      },
+    ],
+    [
+      "terminal-run-action",
+      (message) => {
+        this.terminalManager.runAction(message as TerminalRunActionMessage);
+      },
+    ],
+    [
+      "terminal-resize",
+      (message) => {
+        this.terminalManager.resize(message as TerminalResizeMessage);
+      },
+    ],
+    [
+      "terminal-close",
+      (message) => {
+        this.terminalManager.close(message as TerminalCloseMessage);
+      },
+    ],
+    [
+      "fetch",
+      async (message) => {
+        await this.handleFetchRequest(message as unknown as AppServerFetchRequest);
+      },
+    ],
+    [
+      "cancel-fetch",
+      (message) => {
+        this.handleFetchCancel(message as unknown as AppServerFetchCancel);
+      },
+    ],
+    [
+      "fetch-stream",
+      (message) => {
+        this.emit("bridge_message", {
+          type: "fetch-stream-error",
+          requestId: typeof message.requestId === "string" ? message.requestId : "",
+          error: "Streaming fetch is not supported in Pocodex yet.",
+        });
+        this.emit("bridge_message", {
+          type: "fetch-stream-complete",
+          requestId: typeof message.requestId === "string" ? message.requestId : "",
+        });
+      },
+    ],
+    [
+      "electron-app-state-snapshot-trigger",
+      (message) => {
+        this.handleElectronAppStateSnapshotTrigger(message);
+      },
+    ],
+  ]);
 
   override on(event: "bridge_message", listener: (message: unknown) => void): this;
   override on(
@@ -364,6 +621,10 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
   async close(): Promise<void> {
     this.isClosing = true;
     this.connectionState = "disconnected";
+    for (const timer of this.syntheticCollabHydrationTimers) {
+      clearTimeout(timer);
+    }
+    this.syntheticCollabHydrationTimers.clear();
     this.fetchRequests.forEach((controller) => controller.abort());
     this.fetchRequests.clear();
     this.terminalManager.dispose();
@@ -391,140 +652,25 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       return;
     }
 
-    switch (message.type) {
-      case "ready":
-        this.emitConnectionState();
-        return;
-      case "log-message":
-      case "view-focused":
-      case "desktop-notification-show":
-      case "desktop-notification-hide":
-      case "power-save-blocker-set":
-      case "electron-set-badge-count":
-      case "hotkey-window-enabled-changed":
-      case "window-fullscreen-changed":
-      case "trace-recording-state-changed":
-      case "trace-recording-uploaded":
-      case "copy-conversation-path":
-      case "copy-working-directory":
-      case "copy-session-id":
-      case "copy-deeplink":
-      case "toggle-sidebar":
-      case "toggle-terminal":
-      case "toggle-diff-panel":
-      case "toggle-thread-pin":
-      case "rename-thread":
-      case "find-in-thread":
-      case "new-chat":
-      case "add-context-file":
-      case "navigate-to-route":
-      case "navigate-back":
-      case "navigate-forward":
-      case "thread-stream-state-changed":
-      case "thread-archived":
-      case "thread-unarchived":
-      case "thread-queued-followups-changed":
-      case "serverRequest/resolved":
-        return;
-      case "persisted-atom-sync-request":
-        this.emit("bridge_message", {
-          type: "persisted-atom-sync",
-          state: Object.fromEntries(this.persistedAtoms),
-        });
-        return;
-      case "persisted-atom-update":
-        this.handlePersistedAtomUpdate(message as unknown as PersistedAtomUpdateMessage);
-        return;
-      case "shared-object-subscribe":
-        this.handleSharedObjectSubscribe(message);
-        return;
-      case "shared-object-unsubscribe":
-        this.handleSharedObjectUnsubscribe(message);
-        return;
-      case "shared-object-set":
-        this.handleSharedObjectSet(message);
-        return;
-      case "archive-thread":
-        await this.handleThreadArchive(message, "thread/archive");
-        return;
-      case "unarchive-thread":
-        await this.handleThreadArchive(message, "thread/unarchive");
-        return;
-      case "thread-role-request":
-        this.handleThreadRoleRequest(message as unknown as TopLevelRequestMessage);
-        return;
-      case "electron-onboarding-pick-workspace-or-create-default":
-        await this.handleOnboardingPickWorkspaceOrCreateDefault();
-        return;
-      case "electron-onboarding-skip-workspace":
-        await this.handleOnboardingSkipWorkspace();
-        return;
-      case "electron-pick-workspace-root-option":
-        this.openDesktopImportDialog("manual");
-        return;
-      case "electron-add-new-workspace-root-option":
-        this.openDesktopImportDialog("manual");
-        return;
-      case "electron-update-workspace-root-options":
-        await this.handleWorkspaceRootsUpdated(message);
-        return;
-      case "electron-set-active-workspace-root":
-        await this.handleSetActiveWorkspaceRoot(message);
-        return;
-      case "electron-rename-workspace-root-option":
-        await this.handleRenameWorkspaceRootOption(message);
-        return;
-      case "mcp-request":
-        await this.handleMcpRequest(message as unknown as AppServerMcpRequestEnvelope);
-        return;
-      case "mcp-response":
-        await this.handleMcpResponse(message as unknown as AppServerMcpResponseEnvelope);
-        return;
-      case "terminal-create":
-        await this.terminalManager.handleCreate(message as TerminalCreateMessage);
-        return;
-      case "terminal-attach":
-        await this.terminalManager.handleAttach(message as TerminalAttachMessage);
-        return;
-      case "terminal-write":
-        this.terminalManager.write(message as TerminalWriteMessage);
-        return;
-      case "terminal-run-action":
-        this.terminalManager.runAction(message as TerminalRunActionMessage);
-        return;
-      case "terminal-resize":
-        this.terminalManager.resize(message as TerminalResizeMessage);
-        return;
-      case "terminal-close":
-        this.terminalManager.close(message as TerminalCloseMessage);
-        return;
-      case "fetch":
-        await this.handleFetchRequest(message as unknown as AppServerFetchRequest);
-        return;
-      case "cancel-fetch":
-        this.handleFetchCancel(message as unknown as AppServerFetchCancel);
-        return;
-      case "fetch-stream":
-        this.emit("bridge_message", {
-          type: "fetch-stream-error",
-          requestId: typeof message.requestId === "string" ? message.requestId : "",
-          error: "Streaming fetch is not supported in Pocodex yet.",
-        });
-        this.emit("bridge_message", {
-          type: "fetch-stream-complete",
-          requestId: typeof message.requestId === "string" ? message.requestId : "",
-        });
-        return;
-      case "cancel-fetch-stream":
-        return;
-      default:
-        if (message.type.endsWith("-response") && typeof message.requestId === "string") {
-          return;
-        }
-        debugLog("app-server", "ignoring unsupported browser bridge message", {
-          type: message.type,
-        });
+    const typedMessage = message as JsonRecord & { type: string };
+    const localHandler = this.localBrowserBridgeHandlers.get(typedMessage.type);
+    if (localHandler) {
+      await localHandler(typedMessage);
+      return;
     }
+
+    if (this.isDroppedBrowserBridgeMessage(typedMessage)) {
+      return;
+    }
+
+    warnOnceLog(
+      "app-server",
+      `unrouted-browser-bridge:${typedMessage.type}`,
+      "browser bridge message has no Pocodex host route and will be dropped",
+      {
+        type: typedMessage.type,
+      },
+    );
   }
 
   async sendWorkerMessage(workerName: string, message: unknown): Promise<void> {
@@ -1472,10 +1618,50 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
         ...(message.error !== undefined ? { error: message.error } : { result }),
       },
     });
+
+    if (message.error === undefined) {
+      this.scheduleSyntheticCollabHydrationNotifications(method, result);
+    }
   }
 
   private async handleMcpRequest(message: AppServerMcpRequestEnvelope): Promise<void> {
     if (!message.request || typeof message.request.method !== "string") {
+      return;
+    }
+
+    const localResult = await this.handleLocalJsonRpcRequest(
+      message.request.method,
+      message.request.params,
+    ).catch((error) => {
+      if (typeof message.request?.id === "string" || typeof message.request?.id === "number") {
+        this.emitBridgeMessage({
+          type: "mcp-response",
+          hostId: this.hostId,
+          message: {
+            id: message.request.id,
+            error: buildJsonRpcError(-32602, normalizeError(error).message),
+          },
+        });
+      }
+      return {
+        handled: true as const,
+        result: undefined,
+      };
+    });
+    if (localResult.handled) {
+      if (
+        (typeof message.request.id === "string" || typeof message.request.id === "number") &&
+        localResult.result !== undefined
+      ) {
+        this.emitBridgeMessage({
+          type: "mcp-response",
+          hostId: this.hostId,
+          message: {
+            id: message.request.id,
+            result: localResult.result,
+          },
+        });
+      }
       return;
     }
 
@@ -1486,6 +1672,25 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
 
     this.sendJsonRpcMessage({
       id: message.request.id,
+      method: message.request.method,
+      params: this.sanitizeMcpParams(message.request.method, message.request.params),
+    });
+  }
+
+  private async handleMcpNotification(message: AppServerMcpNotificationEnvelope): Promise<void> {
+    if (!message.request || typeof message.request.method !== "string") {
+      return;
+    }
+
+    const localResult = await this.handleLocalJsonRpcRequest(
+      message.request.method,
+      message.request.params,
+    );
+    if (localResult.handled) {
+      return;
+    }
+
+    this.sendJsonRpcMessage({
       method: message.request.method,
       params: this.sanitizeMcpParams(message.request.method, message.request.params),
     });
@@ -3244,6 +3449,113 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     this.emit("bridge_message", message);
   }
 
+  private scheduleSyntheticCollabHydrationNotifications(
+    method: string | null,
+    payload: unknown,
+  ): void {
+    if (method !== "thread/read" && method !== "thread/resume") {
+      return;
+    }
+
+    const thread = isJsonRecord(payload) && isJsonRecord(payload.thread) ? payload.thread : null;
+    if (!thread || typeof thread.id !== "string" || !Array.isArray(thread.turns)) {
+      return;
+    }
+
+    const notifications: Array<{
+      threadId: string;
+      turnId: string;
+      item: JsonRecord;
+    }> = [];
+    for (const turn of thread.turns) {
+      if (!isJsonRecord(turn) || typeof turn.id !== "string" || !Array.isArray(turn.items)) {
+        continue;
+      }
+
+      for (const item of turn.items) {
+        if (
+          !isJsonRecord(item) ||
+          item.type !== "collabAgentToolCall" ||
+          typeof item.id !== "string" ||
+          !Array.isArray(item.receiverThreadIds) ||
+          item.receiverThreadIds.length === 0
+        ) {
+          continue;
+        }
+
+        notifications.push({
+          threadId: thread.id,
+          turnId: turn.id,
+          item,
+        });
+      }
+    }
+
+    if (notifications.length === 0) {
+      return;
+    }
+
+    // The renderer only hydrates receiver threads from item notifications, but it
+    // builds the conversation state from the thread/read or thread/resume result
+    // asynchronously. Emit a few deferred retries so the notification lands after
+    // the conversation exists in the client-side store.
+    const retryDelaysMs = [0, 50, 250, 1000];
+    for (const delayMs of retryDelaysMs) {
+      const timer = setTimeout(() => {
+        this.syntheticCollabHydrationTimers.delete(timer);
+        if (this.isClosing) {
+          return;
+        }
+
+        for (const notification of notifications) {
+          this.emitBridgeMessage({
+            type: "mcp-notification",
+            hostId: this.hostId,
+            method: "item/completed",
+            params: {
+              threadId: notification.threadId,
+              turnId: notification.turnId,
+              item: notification.item,
+            },
+          });
+        }
+      }, delayMs);
+      this.syntheticCollabHydrationTimers.add(timer);
+    }
+
+    debugLog("app-server", "scheduled synthetic collab hydration notifications", {
+      method,
+      threadId: thread.id,
+      notificationCount: notifications.length,
+      retryDelaysMs,
+    });
+  }
+
+  private handleElectronAppStateSnapshotTrigger(message: JsonRecord & { type: string }): void {
+    const reason = normalizeNonEmptyString(message.reason) ?? "pocodex-bridge";
+    const requestId = `pocodex-app-state-snapshot-${randomUUID()}`;
+
+    debugLog("app-server", "bridging app state snapshot trigger", {
+      requestId,
+      reason,
+    });
+
+    this.emitBridgeMessage({
+      type: "electron-app-state-snapshot-request",
+      hostId: this.hostId,
+      requestId,
+      reason,
+    });
+  }
+
+  private isDroppedBrowserBridgeMessage(message: JsonRecord & { type: string }): boolean {
+    if (this.droppedBrowserBridgeMessageTypes.has(message.type)) {
+      return true;
+    }
+
+    return message.type.endsWith("-response") && typeof message.requestId === "string";
+  }
+
   private async enrichThreadPayloadForMethod(
     method: string | null,
     payload: unknown,
@@ -3319,27 +3631,41 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     }
 
     const threadPath = extractThreadSessionPath(payload);
-    if (!threadPath || hasSubagentThreadSource(payload.source)) {
-      return payload;
-    }
-
-    const metadata = await this.readSessionSubagentMetadata(threadPath);
-    if (!metadata) {
+    if (!threadPath) {
       return payload;
     }
 
     let changed = false;
     const nextPayload: JsonRecord = { ...payload };
 
-    nextPayload.source = metadata.source;
-    changed = true;
+    if (!hasSubagentThreadSource(payload.source)) {
+      const metadata = await this.readSessionSubagentMetadata(threadPath);
+      if (metadata) {
+        nextPayload.source = metadata.source;
+        changed = true;
 
-    if (!hasNonEmptyString(payload.agentNickname) && metadata.agentNickname !== null) {
-      nextPayload.agentNickname = metadata.agentNickname;
+        if (!hasNonEmptyString(payload.agentNickname) && metadata.agentNickname !== null) {
+          nextPayload.agentNickname = metadata.agentNickname;
+        }
+
+        if (!hasNonEmptyString(payload.agentRole) && metadata.agentRole !== null) {
+          nextPayload.agentRole = metadata.agentRole;
+        }
+      }
     }
 
-    if (!hasNonEmptyString(payload.agentRole) && metadata.agentRole !== null) {
-      nextPayload.agentRole = metadata.agentRole;
+    if (Array.isArray(payload.turns) && typeof payload.id === "string") {
+      const syntheticCollabCalls = await this.readSessionSyntheticCollabCalls(threadPath);
+      const enrichedTurns = injectSyntheticCollabToolCalls(payload.turns, payload.id, syntheticCollabCalls);
+      if (!arraysReferenceEqual(payload.turns, enrichedTurns)) {
+        nextPayload.turns = enrichedTurns;
+        changed = true;
+        debugLog("app-server", "injected synthetic collab tool calls", {
+          threadId: payload.id,
+          sessionPath: threadPath,
+          syntheticCollabCallCount: syntheticCollabCalls.length,
+        });
+      }
     }
 
     return changed ? nextPayload : payload;
@@ -3356,6 +3682,20 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
 
     const pending = this.loadSessionSubagentMetadata(normalizedPath);
     this.sessionSubagentMetadataCache.set(normalizedPath, pending);
+    return pending;
+  }
+
+  private async readSessionSyntheticCollabCalls(
+    threadPath: string,
+  ): Promise<SessionSyntheticCollabCallRecord[]> {
+    const normalizedPath = resolve(threadPath);
+    const cached = this.sessionSyntheticCollabCallCache.get(normalizedPath);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = this.loadSessionSyntheticCollabCalls(normalizedPath);
+    this.sessionSyntheticCollabCallCache.set(normalizedPath, pending);
     return pending;
   }
 
@@ -3407,6 +3747,13 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     if (supplementalThreads.length === 0) {
       return payload;
     }
+
+    debugLog("app-server", "supplemented thread/list with indexed subagent threads", {
+      supplementalThreadCount: supplementalThreads.length,
+      supplementalThreadIds: supplementalThreads
+        .map((thread) => normalizeNonEmptyString(thread.id))
+        .filter((threadId): threadId is string => threadId !== null),
+    });
 
     const mergedThreads = [...payload.data, ...supplementalThreads].sort((left, right) =>
       compareThreadListRecords(left, right, params.sortKey),
@@ -3596,11 +3943,145 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
     }
   }
 
+  private async loadSessionSyntheticCollabCalls(
+    sessionPath: string,
+  ): Promise<SessionSyntheticCollabCallRecord[]> {
+    try {
+      const contents = await readFile(sessionPath, "utf8");
+      return parseSessionSyntheticCollabCalls(contents);
+    } catch (error) {
+      if (isMissingFileError(error)) {
+        return [];
+      }
+      debugLog("app-server", "failed to read session synthetic collab calls", {
+        path: sessionPath,
+        error: normalizeError(error).message,
+      });
+      return [];
+    }
+  }
+
   private sendJsonRpcMessage(message: JsonRecord): void {
     this.child.stdin.write(`${JSON.stringify(message)}\n`);
   }
 
+  private async handleLocalJsonRpcRequest(
+    method: string,
+    params: unknown,
+  ): Promise<{ handled: true; result: unknown } | { handled: false }> {
+    switch (method) {
+      case "experimentalFeature/list":
+        return {
+          handled: true,
+          result: this.listExperimentalFeatures(params),
+        };
+      case "experimentalFeature/enablement/set":
+        return {
+          handled: true,
+          result: this.setExperimentalFeatureEnablement(params),
+        };
+      default:
+        return {
+          handled: false,
+        };
+    }
+  }
+
+  private listExperimentalFeatures(params: unknown): {
+    data: Array<{ name: string; enabled: boolean }>;
+    nextCursor: string | null;
+  } {
+    const requestedCursor =
+      isJsonRecord(params) && typeof params.cursor === "string" ? params.cursor : null;
+    const startIndex = parseExperimentalFeatureCursor(requestedCursor);
+    const requestedLimit =
+      isJsonRecord(params) ? normalizePositiveInteger(params.limit) : null;
+    const featureEntries = Object.entries(this.getExperimentalFeatureEnablement()).sort(([left], [right]) =>
+      left.localeCompare(right),
+    );
+    const limit = requestedLimit ?? (featureEntries.length || 100);
+    const data = featureEntries
+      .slice(startIndex, startIndex + limit)
+      .map(([name, enabled]) => ({ name, enabled }));
+    const nextCursor =
+      startIndex + data.length < featureEntries.length ? String(startIndex + data.length) : null;
+
+    debugLog("app-server", "served experimental feature list", {
+      requestedCursor,
+      nextCursor,
+      limit,
+      totalFeatureCount: featureEntries.length,
+      features: data,
+    });
+
+    return {
+      data,
+      nextCursor,
+    };
+  }
+
+  private setExperimentalFeatureEnablement(params: unknown): {
+    name: string;
+    featureName: string;
+    enabled: boolean;
+  } {
+    const featureName =
+      isJsonRecord(params) && typeof params.featureName === "string"
+        ? params.featureName.trim()
+        : "";
+    if (featureName.length === 0) {
+      throw new Error("Missing experimental feature name.");
+    }
+
+    const enabled =
+      isJsonRecord(params) && typeof params.enabled === "boolean" ? params.enabled : false;
+    const features = this.getExperimentalFeatureEnablement();
+    const wasKnown =
+      Object.prototype.hasOwnProperty.call(DEFAULT_EXPERIMENTAL_FEATURE_ENABLEMENT, featureName) ||
+      featureName in features;
+    features[featureName] = enabled;
+    this.globalState.set(EXPERIMENTAL_FEATURES_STATE_KEY, features);
+    this.queueGlobalStateRegistryWrite();
+
+    if (!wasKnown) {
+      warnOnceLog(
+        "app-server",
+        `experimental-feature-discovered:${featureName}`,
+        "discovered new experimental feature name",
+        {
+          featureName,
+          enabled,
+        },
+      );
+    }
+
+    debugLog("app-server", "updated experimental feature enablement", {
+      featureName,
+      enabled,
+    });
+
+    return {
+      name: featureName,
+      featureName,
+      enabled,
+    };
+  }
+
+  private getExperimentalFeatureEnablement(): Record<string, boolean> {
+    return {
+      ...DEFAULT_EXPERIMENTAL_FEATURE_ENABLEMENT,
+      ...normalizeExperimentalFeatureEnablementMap(
+        this.globalState.get(EXPERIMENTAL_FEATURES_STATE_KEY),
+      ),
+    };
+  }
+
   private async sendLocalRequest(method: string, params?: unknown): Promise<unknown> {
+    const localResult = await this.handleLocalJsonRpcRequest(method, params);
+    if (localResult.handled) {
+      return localResult.result;
+    }
+
     const id = `pocodex-local-${++this.nextRequestId}`;
     return new Promise<unknown>((resolve, reject) => {
       this.localRequests.set(id, { method, params, resolve, reject });
@@ -3646,6 +4127,13 @@ function buildIpcSuccessResponse(requestId: string, result: unknown): JsonRecord
     type: "response",
     resultType: "success",
     result,
+  };
+}
+
+function buildJsonRpcError(code: number, message: string): JsonRecord {
+  return {
+    code,
+    message,
   };
 }
 
@@ -3923,6 +4411,397 @@ function parseSessionThreadIndexRecord(payload: unknown): SessionThreadIndexReco
   };
 }
 
+function parseSessionSyntheticCollabCalls(contents: string): SessionSyntheticCollabCallRecord[] {
+  const pendingCalls = new Map<
+    string,
+    {
+      timestampMs: number | null;
+      agentId: string | null;
+      agentNickname: string | null;
+      agentRole: string | null;
+      prompt: string | null;
+      model: string | null;
+      reasoningEffort: string | null;
+      tool: string;
+      status: "inProgress" | "completed";
+      agentStateStatus: "running" | "completed";
+      agentStateMessage: string | null;
+    }
+  >();
+  const agentIdToCallIds = new Map<string, string[]>();
+
+  for (const rawLine of contents.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) {
+      continue;
+    }
+
+    let entry: unknown;
+    try {
+      entry = JSON.parse(line);
+    } catch {
+      continue;
+    }
+
+    if (!isJsonRecord(entry) || !isJsonRecord(entry.payload)) {
+      continue;
+    }
+
+    const payload = entry.payload;
+    const timestampMs = normalizeTimestampMs(entry.timestamp);
+
+    if (entry.type === "response_item" && payload.type === "function_call") {
+      const callId = normalizeNonEmptyString(payload.call_id);
+      const functionName = normalizeNonEmptyString(payload.name);
+      const argumentsPayload = safeParseJsonString(payload.arguments);
+      if (!callId || !functionName || !isJsonRecord(argumentsPayload)) {
+        continue;
+      }
+
+      if (functionName === "spawn_agent") {
+        pendingCalls.set(callId, {
+          timestampMs,
+          agentId: null,
+          agentNickname: null,
+          agentRole: normalizeNonEmptyString(argumentsPayload.agent_type),
+          prompt: normalizeNonEmptyString(argumentsPayload.message),
+          model: normalizeNonEmptyString(argumentsPayload.model),
+          reasoningEffort: normalizeNonEmptyString(argumentsPayload.reasoning_effort),
+          tool: mapSyntheticCollabToolName(functionName),
+          status: "inProgress",
+          agentStateStatus: "running",
+          agentStateMessage: null,
+        });
+        continue;
+      }
+
+      if (functionName === "close_agent") {
+        const targetAgentId = normalizeNonEmptyString(argumentsPayload.target);
+        if (!targetAgentId) {
+          continue;
+        }
+        for (const callIdForAgent of agentIdToCallIds.get(targetAgentId) ?? []) {
+          const pending = pendingCalls.get(callIdForAgent);
+          if (!pending) {
+            continue;
+          }
+          pending.status = "completed";
+          if (pending.agentStateStatus !== "completed") {
+            pending.agentStateStatus = "completed";
+          }
+        }
+      }
+
+      continue;
+    }
+
+    if (entry.type === "response_item" && payload.type === "function_call_output") {
+      const callId = normalizeNonEmptyString(payload.call_id);
+      const pending = callId ? pendingCalls.get(callId) : null;
+      if (!callId) {
+        continue;
+      }
+
+      const outputPayload = safeParseJsonString(payload.output);
+      if (pending) {
+        const agentId = isJsonRecord(outputPayload)
+          ? normalizeNonEmptyString(outputPayload.agent_id)
+          : null;
+        if (agentId) {
+          pending.agentId = agentId;
+          pending.agentNickname =
+            normalizeNonEmptyString((outputPayload as JsonRecord).nickname) ?? pending.agentNickname;
+          const existing = agentIdToCallIds.get(agentId) ?? [];
+          if (!existing.includes(callId)) {
+            existing.push(callId);
+            agentIdToCallIds.set(agentId, existing);
+          }
+          continue;
+        }
+      }
+
+      if (isJsonRecord(outputPayload) && isJsonRecord(outputPayload.status)) {
+        for (const [agentId, statusValue] of Object.entries(outputPayload.status)) {
+          if (typeof agentId !== "string" || !isJsonRecord(statusValue)) {
+            continue;
+          }
+          for (const callIdForAgent of agentIdToCallIds.get(agentId) ?? []) {
+            const collabCall = pendingCalls.get(callIdForAgent);
+            if (!collabCall) {
+              continue;
+            }
+            const [agentStateStatus, agentStateMessage] = normalizeAgentState(statusValue);
+            collabCall.status = agentStateStatus === "completed" ? "completed" : collabCall.status;
+            collabCall.agentStateStatus = agentStateStatus;
+            collabCall.agentStateMessage = agentStateMessage;
+            if (collabCall.timestampMs === null) {
+              collabCall.timestampMs = timestampMs;
+            }
+          }
+        }
+      }
+
+      continue;
+    }
+
+    if (entry.type !== "response_item" || payload.type !== "message" || payload.role !== "user") {
+      continue;
+    }
+
+    const notification = extractSubagentNotificationPayload(payload.content);
+    const agentId = normalizeNonEmptyString(notification?.agent_path);
+    const statusPayload = notification && isJsonRecord(notification.status) ? notification.status : null;
+    if (!agentId || !statusPayload) {
+      continue;
+    }
+
+    for (const callId of agentIdToCallIds.get(agentId) ?? []) {
+      const collabCall = pendingCalls.get(callId);
+      if (!collabCall) {
+        continue;
+      }
+      const [agentStateStatus, agentStateMessage] = normalizeAgentState(statusPayload);
+      collabCall.status = agentStateStatus === "completed" ? "completed" : collabCall.status;
+      collabCall.agentStateStatus = agentStateStatus;
+      collabCall.agentStateMessage = agentStateMessage;
+      if (collabCall.timestampMs === null) {
+        collabCall.timestampMs = timestampMs;
+      }
+    }
+  }
+
+  return [...pendingCalls.values()]
+    .filter((record): record is SessionSyntheticCollabCallRecord => record.agentId !== null)
+    .map((record) => ({
+      timestampMs: record.timestampMs,
+      agentId: record.agentId,
+      agentNickname: record.agentNickname,
+      agentRole: record.agentRole,
+      prompt: record.prompt,
+      model: record.model,
+      reasoningEffort: record.reasoningEffort,
+      tool: record.tool,
+      status: record.status,
+      agentStateStatus: record.agentStateStatus,
+      agentStateMessage: record.agentStateMessage,
+    }));
+}
+
+function injectSyntheticCollabToolCalls(
+  turns: unknown[],
+  senderThreadId: string,
+  collabCalls: readonly SessionSyntheticCollabCallRecord[],
+): unknown[] {
+  if (turns.length === 0 || collabCalls.length === 0) {
+    return turns;
+  }
+
+  const nextTurns = [...turns];
+  let changed = false;
+
+  for (const collabCall of collabCalls) {
+    const turnIndex = findBestSyntheticTurnIndex(turns, collabCall.timestampMs);
+    if (turnIndex < 0) {
+      continue;
+    }
+
+    const turn = nextTurns[turnIndex];
+    if (!isJsonRecord(turn)) {
+      continue;
+    }
+
+    const items = Array.isArray(turn.items) ? turn.items : [];
+    if (hasSyntheticCollabToolCall(items, collabCall.agentId)) {
+      continue;
+    }
+
+    nextTurns[turnIndex] = {
+      ...turn,
+      items: [...items, buildSyntheticCollabToolCall(senderThreadId, collabCall)],
+    };
+    changed = true;
+  }
+
+  return changed ? nextTurns : turns;
+}
+
+function findBestSyntheticTurnIndex(turns: readonly unknown[], timestampMs: number | null): number {
+  if (turns.length === 0) {
+    return -1;
+  }
+
+  if (timestampMs === null) {
+    return turns.length - 1;
+  }
+
+  let bestIndex = -1;
+  let bestTimestamp = Number.NEGATIVE_INFINITY;
+  for (let index = 0; index < turns.length; index += 1) {
+    const turn = turns[index];
+    if (!isJsonRecord(turn)) {
+      continue;
+    }
+
+    const turnTimestamp =
+      normalizeTimestampMs(turn.turnStartedAtMs) ??
+      normalizeTimestampMs(turn.startedAt) ??
+      normalizeTimestampMs(turn.createdAt);
+    if (turnTimestamp === null || turnTimestamp > timestampMs || turnTimestamp < bestTimestamp) {
+      continue;
+    }
+
+    bestIndex = index;
+    bestTimestamp = turnTimestamp;
+  }
+
+  return bestIndex >= 0 ? bestIndex : turns.length - 1;
+}
+
+function buildSyntheticCollabToolCall(
+  senderThreadId: string,
+  collabCall: SessionSyntheticCollabCallRecord,
+): JsonRecord {
+  return {
+    id: `pocodex-collab-agent-${collabCall.agentId}`,
+    type: "collabAgentToolCall",
+    tool: collabCall.tool,
+    status: collabCall.status,
+    senderThreadId,
+    receiverThreadIds: [collabCall.agentId],
+    receiverThreads: [
+      {
+        threadId: collabCall.agentId,
+        thread: null,
+      },
+    ],
+    prompt: collabCall.prompt ?? "",
+    model: collabCall.model,
+    reasoningEffort: collabCall.reasoningEffort,
+    agentsStates: {
+      [collabCall.agentId]: {
+        status: collabCall.agentStateStatus,
+        message: collabCall.agentStateMessage,
+        nickname: collabCall.agentNickname,
+        role: collabCall.agentRole,
+      },
+    },
+  };
+}
+
+function hasSyntheticCollabToolCall(items: readonly unknown[], agentId: string): boolean {
+  return items.some(
+    (item) =>
+      isJsonRecord(item) &&
+      item.type === "collabAgentToolCall" &&
+      Array.isArray(item.receiverThreadIds) &&
+      item.receiverThreadIds.includes(agentId),
+  );
+}
+
+function extractSubagentNotificationPayload(content: unknown): JsonRecord | null {
+  if (!Array.isArray(content)) {
+    return null;
+  }
+
+  for (const item of content) {
+    if (!isJsonRecord(item)) {
+      continue;
+    }
+
+    const text =
+      normalizeNonEmptyString(item.text) ??
+      normalizeNonEmptyString(item.output_text) ??
+      normalizeNonEmptyString(item.input_text);
+    if (!text) {
+      continue;
+    }
+
+    const match = text.match(/<subagent_notification>\s*([\s\S]*?)\s*<\/subagent_notification>/i);
+    if (!match) {
+      continue;
+    }
+
+    const payload = safeParseJsonString(match[1]);
+    if (isJsonRecord(payload)) {
+      return payload;
+    }
+  }
+
+  return null;
+}
+
+function normalizeAgentState(statusPayload: JsonRecord): ["running" | "completed", string | null] {
+  const completedMessage = normalizeNonEmptyString(statusPayload.completed);
+  if (completedMessage) {
+    return ["completed", completedMessage];
+  }
+
+  const failedMessage = normalizeNonEmptyString(statusPayload.failed);
+  if (failedMessage) {
+    return ["completed", failedMessage];
+  }
+
+  const runningMessage =
+    normalizeNonEmptyString(statusPayload.running) ?? normalizeNonEmptyString(statusPayload.in_progress);
+  if (runningMessage) {
+    return ["running", runningMessage];
+  }
+
+  return ["completed", null];
+}
+
+function mapSyntheticCollabToolName(tool: string): string {
+  switch (tool) {
+    case "spawn_agent":
+      return "spawnAgent";
+    case "send_input":
+      return "sendInput";
+    case "close_agent":
+      return "closeAgent";
+    case "wait_agent":
+      return "wait";
+    default:
+      return tool;
+  }
+}
+
+function safeParseJsonString(value: unknown): unknown {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTimestampMs(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+
+    const parsed = Date.parse(trimmed);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
 function normalizeThreadListRequestParams(requestParams: unknown): ThreadListRequestParams {
   const params = isJsonRecord(requestParams) ? requestParams : null;
   const modelProviders = Array.isArray(params?.modelProviders)
@@ -4039,6 +4918,31 @@ function normalizePositiveInteger(value: unknown): number | null {
 
 function normalizeNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeExperimentalFeatureEnablementMap(value: unknown): Record<string, boolean> {
+  if (!isJsonRecord(value)) {
+    return {};
+  }
+
+  const normalized: Record<string, boolean> = {};
+  for (const [featureName, enabled] of Object.entries(value)) {
+    const trimmedName = featureName.trim();
+    if (trimmedName.length === 0 || typeof enabled !== "boolean") {
+      continue;
+    }
+    normalized[trimmedName] = enabled;
+  }
+  return normalized;
+}
+
+function parseExperimentalFeatureCursor(cursor: string | null): number {
+  if (!cursor) {
+    return 0;
+  }
+
+  const parsed = Number.parseInt(cursor, 10);
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
 function hasNonEmptyString(value: unknown): value is string {
