@@ -27,8 +27,6 @@ jobs:
         include:
           - os: ubuntu-latest
             target: linux-x64
-          - os: macos-13
-            target: darwin-x64
           - os: macos-14
             target: darwin-arm64
 

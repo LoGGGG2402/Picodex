@@ -33,7 +33,6 @@ The repository now includes `.github/workflows/release.yml`.
 It builds release assets for:
 
 - `linux-x64` on `ubuntu-latest`
-- `darwin-x64` on `macos-13`
 - `darwin-arm64` on `macos-14`
 
 The workflow runs automatically when you push a tag like `v0.3.0`, and it can also be started manually with `workflow_dispatch`. Each run publishes GitHub Release assets named like `picodex-v0.3.0-darwin-arm64.js` plus matching `.sha256` files.
