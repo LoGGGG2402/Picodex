@@ -62,6 +62,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
   filesHost.hidden = true;
   settingsModalHost.hidden = true;
   document.documentElement.dataset.picodex = "true";
+  installClipboardWriteTextShim();
 
   const statsigApi = installBootstrapStatsigModule({
     backgroundSubagentsStatsigGate: BACKGROUND_SUBAGENTS_STATSIG_GATE,
@@ -156,6 +157,91 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
       return;
     }
     callback();
+  }
+
+  function installClipboardWriteTextShim(): void {
+    if (typeof navigator === "undefined") {
+      return;
+    }
+
+    const clipboard = navigator.clipboard;
+    if (clipboard && typeof clipboard.writeText === "function") {
+      return;
+    }
+
+    const shim = {
+      writeText(text: string): Promise<void> {
+        return fallbackWriteText(text);
+      },
+    };
+
+    try {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: shim,
+      });
+      return;
+    } catch {
+      // Fall through to direct assignment when the property can't be redefined.
+    }
+
+    try {
+      Object.assign(navigator, {
+        clipboard: shim,
+      });
+    } catch {
+      // Ignore. The app will continue using any existing clipboard implementation.
+    }
+  }
+
+  async function fallbackWriteText(text: string): Promise<void> {
+    if (copyTextWithExecCommand(text)) {
+      return;
+    }
+
+    throw new Error("Clipboard is not available in this browser.");
+  }
+
+  function copyTextWithExecCommand(text: string): boolean {
+    if (!document.body || typeof document.execCommand !== "function") {
+      return false;
+    }
+
+    const textArea = document.createElement("textarea");
+    const activeElement = document.activeElement;
+    const selection = window.getSelection();
+    const previousRange =
+      selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
+
+    textArea.value = text;
+    textArea.setAttribute("readonly", "true");
+    textArea.setAttribute("aria-hidden", "true");
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.opacity = "0";
+    textArea.style.pointerEvents = "none";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    textArea.setSelectionRange(0, text.length);
+
+    try {
+      return document.execCommand("copy");
+    } catch {
+      return false;
+    } finally {
+      textArea.remove();
+      if (selection) {
+        selection.removeAllRanges();
+        if (previousRange) {
+          selection.addRange(previousRange);
+        }
+      }
+      if (activeElement instanceof HTMLElement) {
+        activeElement.focus();
+      }
+    }
   }
 
   function ensureHostAttached(host: HTMLDivElement): void {
