@@ -8,27 +8,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outputPath = join(projectRoot, "dist", "picodex-single.js");
-const runtimePackageNames = [
-  "@electron/asar",
-  "@xmldom/xmldom",
-  "balanced-match",
-  "base64-js",
-  "brace-expansion",
-  "commander",
-  "glob",
-  "lru-cache",
-  "mime-db",
-  "mime-types",
-  "minimatch",
-  "minipass",
-  "node-addon-api",
-  "node-pty",
-  "path-scurry",
-  "plist",
-  "ws",
-  "xmlbuilder",
-];
+const outputPath = join(projectRoot, "dist", "cli.js");
 const allowedNodeModuleExtensions = new Set([".cjs", ".js", ".json", ".mjs", ".node"]);
 const alwaysIncludedNodeModuleBasenames = new Set(["spawn-helper"]);
 
@@ -43,8 +23,8 @@ async function main() {
   await addTree(files, "dist");
   await addTree(files, "app.asar");
 
-  for (const packageName of runtimePackageNames) {
-    await addTree(files, join("node_modules", packageName), {
+  for (const packagePath of await collectRuntimePackagePaths()) {
+    await addTree(files, packagePath, {
       include: includeNodeModuleFile,
     });
   }
@@ -142,6 +122,100 @@ function normalizeManifestPath(path) {
   return path.split("\\").join("/");
 }
 
+async function collectRuntimePackagePaths() {
+  const rootPackageJson = JSON.parse(await readFile(join(projectRoot, "package.json"), "utf8"));
+  const packageLock = JSON.parse(await readFile(join(projectRoot, "package-lock.json"), "utf8"));
+  const packageEntries = packageLock?.packages;
+  if (!packageEntries || typeof packageEntries !== "object") {
+    throw new Error("package-lock.json does not contain a supported packages map.");
+  }
+
+  const directDependencyNames = Object.keys(rootPackageJson.dependencies ?? {});
+  const reachablePackagePaths = new Set();
+  const queue = directDependencyNames.map((name) => normalizeManifestPath(join("node_modules", name)));
+
+  while (queue.length > 0) {
+    const packagePath = queue.shift();
+    if (!packagePath || reachablePackagePaths.has(packagePath)) {
+      continue;
+    }
+
+    const packageInfo = packageEntries[packagePath];
+    if (!packageInfo || typeof packageInfo !== "object") {
+      throw new Error(`Runtime dependency is missing from package-lock.json: ${packagePath}`);
+    }
+
+    reachablePackagePaths.add(packagePath);
+
+    const dependencyNames = [
+      ...Object.keys(packageInfo.dependencies ?? {}),
+      ...Object.keys(packageInfo.optionalDependencies ?? {}),
+    ];
+
+    for (const dependencyName of dependencyNames) {
+      const dependencyPath = resolveDependencyPackagePath(packagePath, dependencyName, packageEntries);
+      if (dependencyPath) {
+        queue.push(dependencyPath);
+      }
+    }
+  }
+
+  return compressPackagePaths([...reachablePackagePaths]);
+}
+
+function resolveDependencyPackagePath(packagePath, dependencyName, packageEntries) {
+  let currentPackagePath = packagePath;
+
+  while (true) {
+    const candidatePath = normalizeManifestPath(
+      currentPackagePath
+        ? join(currentPackagePath, "node_modules", dependencyName)
+        : join("node_modules", dependencyName),
+    );
+    if (candidatePath in packageEntries) {
+      return candidatePath;
+    }
+
+    const parentPackagePath = getParentPackagePath(currentPackagePath);
+    if (parentPackagePath === null) {
+      return null;
+    }
+    currentPackagePath = parentPackagePath;
+  }
+}
+
+function getParentPackagePath(packagePath) {
+  if (!packagePath) {
+    return null;
+  }
+
+  const segments = normalizeManifestPath(packagePath).split("/");
+  const lastNodeModulesIndex = segments.lastIndexOf("node_modules");
+  if (lastNodeModulesIndex < 0) {
+    return null;
+  }
+
+  return segments.slice(0, lastNodeModulesIndex).join("/");
+}
+
+function compressPackagePaths(packagePaths) {
+  const sortedPackagePaths = [...packagePaths].sort(
+    (left, right) => left.length - right.length || left.localeCompare(right),
+  );
+  const minimalPackagePaths = [];
+
+  for (const packagePath of sortedPackagePaths) {
+    const isCoveredByParent = minimalPackagePaths.some((parentPackagePath) =>
+      packagePath.startsWith(`${parentPackagePath}/node_modules/`),
+    );
+    if (!isCoveredByParent) {
+      minimalPackagePaths.push(packagePath);
+    }
+  }
+
+  return minimalPackagePaths.sort((left, right) => left.localeCompare(right));
+}
+
 function renderEmbeddedPackageJson() {
   return JSON.stringify(
     {
@@ -184,7 +258,7 @@ async function main() {
     ? userArgv
     : ["--asar", embeddedAsarPath, ...userArgv];
 
-  process.argv = [process.argv[0] ?? "node", process.argv[1] ?? "picodex-single.js", ...effectiveArgv];
+  process.argv = [process.argv[0] ?? "node", process.argv[1] ?? "cli.js", ...effectiveArgv];
   await import(pathToFileURL(join(extractionRoot, "dist", "cli.js")).href);
 }
 

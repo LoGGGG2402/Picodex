@@ -16,7 +16,7 @@ Browser-hosted wrapper around the Codex desktop webview with a direct app-server
 
 ## Single-file launcher
 
-Run `npm run build:single` to generate `dist/picodex-single.js`.
+Run `npm run build:single` to generate `dist/cli.js`.
 
 That output is a self-extracting Node launcher. It embeds:
 
@@ -30,10 +30,6 @@ At startup it extracts itself into the user cache directory and then launches Pi
 
 The repository now includes `.github/workflows/release.yml`.
 
-It builds release assets for:
+It builds a single Linux release asset on `ubuntu-latest`.
 
-- `linux-x64` on `ubuntu-latest`
-- `darwin-arm64` on `macos-14`
-
-The workflow runs automatically when you push a tag like `v0.3.0`, and it can also be started manually with `workflow_dispatch`. Each run publishes GitHub Release assets named like `picodex-v0.3.0-darwin-arm64.js` plus matching `.sha256` files.
-The release job also marks the `.js` launcher executable with `chmod +x` and publishes a `.zip` copy with its own checksum.
+The workflow runs automatically on every push to `main`. Each run bumps the patch version in `package.json`, creates a matching git tag like `v0.3.1`, and publishes the executable `cli.js` directly to the GitHub Release plus a matching `cli.js.sha256` file.
