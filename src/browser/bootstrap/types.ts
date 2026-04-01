@@ -3,7 +3,6 @@ import type { SentryInitOptions } from "../../core/protocol.js";
 export interface BootstrapScriptConfig {
   sentryOptions: SentryInitOptions;
   stylesheetHref: string;
-  highlightModuleHref?: string;
   importIconSvg?: string;
 }
 
@@ -88,14 +87,9 @@ export type WorkspaceFileSearchResult = {
   relativePath: string;
 };
 
-export type HighlightCodeModule = {
-  highlightCode: (
-    code: string,
-    language?: string,
-  ) => {
-    html: string;
-    language?: string;
-  };
+export type WorkspaceFileHighlightResult = {
+  html: string;
+  language: string;
 };
 
 export type SessionValidationResult =

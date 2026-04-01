@@ -1,6 +1,7 @@
 import { installBootstrapBridgeModule } from "./bridge-module.js";
 import { installBootstrapFilesModule } from "./files-module.js";
 import { installBootstrapMobileSidebarModule } from "./mobile-sidebar-module.js";
+import { installBootstrapModelConfigModule } from "./model-config-module.js";
 import { installBootstrapOpenInAppModule } from "./open-in-app-module.js";
 import { installBootstrapSettingsImportModule } from "./settings-import-module.js";
 import { installBootstrapStatsigModule } from "./statsig-module.js";
@@ -22,6 +23,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
   const statusHost = document.createElement("div");
   const importHost = document.createElement("div");
   const filesHost = document.createElement("div");
+  const modelConfigHost = document.createElement("div");
   const settingsModalHost = document.createElement("div");
 
   const filesState: FilesState = {
@@ -57,9 +59,11 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
   statusHost.id = "picodex-status-host";
   importHost.id = "picodex-import-host";
   filesHost.id = "picodex-files-host";
+  modelConfigHost.id = "picodex-model-config-host";
   settingsModalHost.id = "picodex-settings-modal-host";
   importHost.hidden = true;
   filesHost.hidden = true;
+  modelConfigHost.hidden = true;
   settingsModalHost.hidden = true;
   document.documentElement.dataset.picodex = "true";
   installClipboardWriteTextShim();
@@ -84,7 +88,6 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     isRecord,
   });
   const filesApi = installBootstrapFilesModule({
-    config,
     filesHost,
     filesState,
     ensureHostAttached,
@@ -98,6 +101,14 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     getWorkspaceFileDirectoryResult: settingsImportApi.getWorkspaceFileDirectoryResult,
     getWorkspaceFileSearchResults: settingsImportApi.getWorkspaceFileSearchResults,
     getWorkspaceFileReadResult: settingsImportApi.getWorkspaceFileReadResult,
+  });
+  const modelConfigApi = installBootstrapModelConfigModule({
+    modelConfigHost,
+    showNotice,
+    ensureHostAttached,
+    isPrimaryUnmodifiedClick,
+    isRecord,
+    callPicodexIpc: settingsImportApi.callPicodexIpc,
   });
   const openInAppApi = installBootstrapOpenInAppModule();
 
@@ -122,6 +133,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     syncPicodexThemeFromPersistedAtomUpdate: themeApi.syncPicodexThemeFromPersistedAtomUpdate,
     openDesktopImportDialog: settingsImportApi.openDesktopImportDialog,
     maybePromptForDesktopImport: settingsImportApi.maybePromptForDesktopImport,
+    openBrowserAttachmentPickerDialog: settingsImportApi.openBrowserAttachmentPickerDialog,
     openManualFilePickerDialog: settingsImportApi.openManualFilePickerDialog,
     refreshWorkspaceFileRoots: filesApi.refreshWorkspaceFileRoots,
     revealWorkspaceFile: filesApi.revealWorkspaceFile,
@@ -138,10 +150,12 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     ensureHostAttached(statusHost);
     ensureHostAttached(importHost);
     ensureHostAttached(filesHost);
+    ensureHostAttached(modelConfigHost);
     ensureHostAttached(settingsModalHost);
     openInAppApi.startOpenInAppObserver();
     settingsImportApi.startImportUiObserver();
     filesApi.startFilesUiObserver();
+    modelConfigApi.startModelConfigObserver();
     if (isEmbeddedSettingsView()) {
       settingsImportApi.installEmbeddedSettingsChromeCleanup();
     } else {

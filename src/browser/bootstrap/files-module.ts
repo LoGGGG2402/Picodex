@@ -1,7 +1,6 @@
 import type {
-  BootstrapScriptConfig,
   FilesState,
-  HighlightCodeModule,
+  WorkspaceFileHighlightResult,
   WorkspaceFileEntry,
   WorkspaceFileReadResult,
   WorkspaceFileRoot,
@@ -9,7 +8,6 @@ import type {
 } from "./types.js";
 
 export function installBootstrapFilesModule(args: {
-  config: BootstrapScriptConfig;
   filesHost: HTMLDivElement;
   filesState: FilesState;
   ensureHostAttached: (host: HTMLDivElement) => void;
@@ -36,7 +34,6 @@ export function installBootstrapFilesModule(args: {
   toggleFilesPanel: (forceOpen?: boolean) => Promise<void>;
 } {
   const {
-    config,
     filesHost,
     filesState,
     ensureHostAttached,
@@ -63,11 +60,12 @@ export function installBootstrapFilesModule(args: {
   const WORKSPACE_PREVIEW_HIGHLIGHT_MAX_CHARACTERS = 200_000;
   const WORKSPACE_PREVIEW_AUTO_HIGHLIGHT_MAX_CHARACTERS = 60_000;
   const WORKSPACE_PREVIEW_HIGHLIGHT_CACHE_LIMIT = 12;
+  const PICODEX_THEME_VARIANT_ATTRIBUTE = "data-picodex-theme-variant";
 
   let isFilesUiObserverStarted = false;
+  let isThemeObserverStarted = false;
   let filesSearchTimeoutId: number | null = null;
   let filesSearchRevision = 0;
-  let workspacePreviewHighlighterPromise: Promise<HighlightCodeModule | null> | null = null;
   const workspacePreviewHighlightCache = new Map<string, { html: string; language: string }>();
 
   function revokeWorkspacePreviewObjectUrl(): void {
@@ -99,21 +97,35 @@ export function installBootstrapFilesModule(args: {
   }
 
   function startFilesUiObserver(): void {
-    if (isFilesUiObserverStarted || !document.body) {
+    if (!document.body) {
       return;
     }
 
-    isFilesUiObserverStarted = true;
-    refreshFilesUi(document);
-
-    const observer = new MutationObserver(() => {
+    if (!isFilesUiObserverStarted) {
+      isFilesUiObserverStarted = true;
       refreshFilesUi(document);
-    });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+      const observer = new MutationObserver(() => {
+        refreshFilesUi(document);
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
+
+    if (!isThemeObserverStarted) {
+      isThemeObserverStarted = true;
+      const themeObserver = new MutationObserver(() => {
+        handleWorkspacePreviewThemeChange();
+      });
+
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: [PICODEX_THEME_VARIANT_ATTRIBUTE],
+      });
+    }
   }
 
   function refreshFilesUi(root: Document | Element = document): void {
@@ -734,8 +746,12 @@ export function installBootstrapFilesModule(args: {
     return filesState.previewPath || filesState.selectedFilePath || null;
   }
 
+  function getWorkspacePreviewExtension(path: string): string {
+    return path.split(".").at(-1)?.toLowerCase() ?? "";
+  }
+
   function getWorkspacePreviewLanguageLabel(path: string): string {
-    const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
+    const extension = getWorkspacePreviewExtension(path);
     return getWorkspacePreviewLanguageLabelForExtension(extension);
   }
 
@@ -785,23 +801,28 @@ export function installBootstrapFilesModule(args: {
   }
 
   function getWorkspacePreviewHighlightLanguage(path: string): string | undefined {
-    const extension = path.split(".").at(-1)?.toLowerCase() ?? "";
+    const extension = getWorkspacePreviewExtension(path);
     switch (extension) {
       case "ts":
-      case "tsx":
         return "typescript";
       case "js":
-      case "jsx":
       case "mjs":
       case "cjs":
         return "javascript";
+      case "tsx":
+        return "tsx";
+      case "jsx":
+        return "jsx";
       case "json":
-      case "jsonc":
-      case "json5":
         return "json";
+      case "jsonc":
+        return "jsonc";
+      case "json5":
+        return "json5";
       case "md":
-      case "mdx":
         return "markdown";
+      case "mdx":
+        return "mdx";
       case "css":
         return "css";
       case "scss":
@@ -811,10 +832,12 @@ export function installBootstrapFilesModule(args: {
         return "less";
       case "html":
       case "htm":
-      case "svg":
-      case "vue":
-      case "xml":
         return "html";
+      case "svg":
+      case "xml":
+        return "xml";
+      case "vue":
+        return "vue";
       case "py":
         return "python";
       case "rs":
@@ -829,7 +852,7 @@ export function installBootstrapFilesModule(args: {
       case "sh":
       case "bash":
       case "zsh":
-        return "shell";
+        return "bash";
       case "c":
       case "h":
         return "c";
@@ -852,8 +875,9 @@ export function installBootstrapFilesModule(args: {
       case "lua":
         return "lua";
       case "ini":
-      case "toml":
         return "ini";
+      case "toml":
+        return "toml";
       case "diff":
       case "patch":
         return "diff";
@@ -865,12 +889,17 @@ export function installBootstrapFilesModule(args: {
   function getWorkspacePreviewLanguageLabelForHighlightLanguage(language: string): string {
     switch (language) {
       case "typescript":
+      case "tsx":
         return "TypeScript";
       case "javascript":
+      case "jsx":
         return "JavaScript";
       case "json":
+      case "jsonc":
+      case "json5":
         return "JSON";
       case "markdown":
+      case "mdx":
         return "Markdown";
       case "css":
       case "scss":
@@ -879,6 +908,8 @@ export function installBootstrapFilesModule(args: {
       case "html":
       case "xml":
         return "HTML";
+      case "vue":
+        return "Vue";
       case "python":
         return "Python";
       case "rust":
@@ -889,7 +920,7 @@ export function installBootstrapFilesModule(args: {
         return "Java";
       case "yaml":
         return "YAML";
-      case "shell":
+      case "shellscript":
       case "bash":
         return "Shell";
       case "c":
@@ -907,6 +938,7 @@ export function installBootstrapFilesModule(args: {
       case "lua":
         return "Lua";
       case "ini":
+      case "toml":
         return "Config";
       case "diff":
         return "Diff";
@@ -1148,33 +1180,12 @@ export function installBootstrapFilesModule(args: {
     return resultList;
   }
 
-  async function loadWorkspacePreviewHighlighter(): Promise<HighlightCodeModule | null> {
-    if (!workspacePreviewHighlighterPromise) {
-      if (!config.highlightModuleHref) {
-        workspacePreviewHighlighterPromise = Promise.resolve(null);
-        return workspacePreviewHighlighterPromise;
-      }
-
-      workspacePreviewHighlighterPromise = import(config.highlightModuleHref)
-        .then((module) =>
-          module &&
-          typeof module === "object" &&
-          "highlightCode" in module &&
-          typeof module.highlightCode === "function"
-            ? (module as HighlightCodeModule)
-            : null,
-        )
-        .catch(() => null);
-    }
-
-    return workspacePreviewHighlighterPromise;
-  }
-
   async function highlightWorkspacePreview(contents: string, relativePath: string): Promise<void> {
     const revision = ++filesState.previewHighlightRevision;
     filesState.previewHighlightedHtml = "";
     filesState.previewHighlightedLanguage = "";
     const preferredLanguage = getWorkspacePreviewHighlightLanguage(relativePath);
+    const themeVariant = getPicodexThemeVariant();
 
     if (!contents || contents.length > WORKSPACE_PREVIEW_HIGHLIGHT_MAX_CHARACTERS) {
       filesState.previewHighlighting = false;
@@ -1188,7 +1199,12 @@ export function installBootstrapFilesModule(args: {
       return;
     }
 
-    const cacheKey = getWorkspacePreviewHighlightCacheKey(contents, relativePath, preferredLanguage);
+    const cacheKey = getWorkspacePreviewHighlightCacheKey(
+      contents,
+      relativePath,
+      preferredLanguage,
+      themeVariant,
+    );
     const cachedResult = workspacePreviewHighlightCache.get(cacheKey);
     if (cachedResult) {
       workspacePreviewHighlightCache.delete(cacheKey);
@@ -1203,60 +1219,38 @@ export function installBootstrapFilesModule(args: {
     filesState.previewHighlighting = true;
     renderFilesPanel();
 
-    const highlighter = await loadWorkspacePreviewHighlighter();
-    if (!highlighter || filesState.previewHighlightRevision !== revision) {
-      if (filesState.previewHighlightRevision === revision) {
-        filesState.previewHighlighting = false;
-        renderFilesPanel();
-      }
-      return;
-    }
-
     try {
-      const result = preferredLanguage
-        ? highlighter.highlightCode(contents, preferredLanguage)
-        : highlighter.highlightCode(contents);
+      const result = getWorkspaceFileHighlightResult(
+        await callPicodexIpc("workspace-files/highlight", {
+          contents,
+          language: preferredLanguage ?? "",
+          relativePath,
+          themeVariant,
+        }),
+      );
 
       if (filesState.previewHighlightRevision !== revision) {
         return;
       }
 
-      filesState.previewHighlightedHtml = typeof result.html === "string" ? result.html : "";
-      filesState.previewHighlightedLanguage =
-        typeof result.language === "string" && result.language.length > 0
-          ? result.language
-          : (preferredLanguage ?? "");
-      rememberWorkspacePreviewHighlightResult(
-        cacheKey,
-        filesState.previewHighlightedHtml,
-        filesState.previewHighlightedLanguage,
-      );
-    } catch {
-      if (preferredLanguage) {
-        try {
-          const fallback = highlighter.highlightCode(contents);
-          if (filesState.previewHighlightRevision !== revision) {
-            return;
-          }
-          filesState.previewHighlightedHtml =
-            typeof fallback.html === "string" ? fallback.html : "";
-          filesState.previewHighlightedLanguage =
-            typeof fallback.language === "string" && fallback.language.length > 0
-              ? fallback.language
-              : "";
-          rememberWorkspacePreviewHighlightResult(
-            cacheKey,
-            filesState.previewHighlightedHtml,
-            filesState.previewHighlightedLanguage,
-          );
-        } catch {
-          if (filesState.previewHighlightRevision !== revision) {
-            return;
-          }
-          filesState.previewHighlightedHtml = "";
-          filesState.previewHighlightedLanguage = "";
-        }
+      if (!result) {
+        filesState.previewHighlightedHtml = "";
+        filesState.previewHighlightedLanguage = "";
+      } else {
+        filesState.previewHighlightedHtml = result.html;
+        filesState.previewHighlightedLanguage = result.language || preferredLanguage || "";
+        rememberWorkspacePreviewHighlightResult(
+          cacheKey,
+          filesState.previewHighlightedHtml,
+          filesState.previewHighlightedLanguage,
+        );
       }
+    } catch {
+      if (filesState.previewHighlightRevision !== revision) {
+        return;
+      }
+      filesState.previewHighlightedHtml = "";
+      filesState.previewHighlightedLanguage = "";
     } finally {
       if (filesState.previewHighlightRevision === revision) {
         filesState.previewHighlighting = false;
@@ -1269,8 +1263,9 @@ export function installBootstrapFilesModule(args: {
     contents: string,
     relativePath: string,
     language?: string,
+    themeVariant?: string,
   ): string {
-    return `${relativePath}\u0000${language ?? ""}\u0000${contents.length}\u0000${hashWorkspacePreviewContents(contents)}`;
+    return `${relativePath}\u0000${language ?? ""}\u0000${themeVariant ?? ""}\u0000${contents.length}\u0000${hashWorkspacePreviewContents(contents)}`;
   }
 
   function hashWorkspacePreviewContents(contents: string): string {
@@ -1297,6 +1292,34 @@ export function installBootstrapFilesModule(args: {
     }
   }
 
+  function getPicodexThemeVariant(): "light" | "dark" {
+    return document.documentElement.dataset.picodexThemeVariant === "light" ? "light" : "dark";
+  }
+
+  function handleWorkspacePreviewThemeChange(): void {
+    if (
+      filesState.previewKind !== "text" ||
+      !filesState.previewContents ||
+      !filesState.previewRelativePath
+    ) {
+      return;
+    }
+
+    void highlightWorkspacePreview(filesState.previewContents, filesState.previewRelativePath);
+  }
+
+  function getWorkspaceFileHighlightResult(result: unknown): WorkspaceFileHighlightResult | null {
+    if (!result || typeof result !== "object") {
+      return null;
+    }
+
+    const payload = result as { html?: unknown; language?: unknown };
+    return {
+      html: typeof payload.html === "string" ? payload.html : "",
+      language: typeof payload.language === "string" ? payload.language : "",
+    };
+  }
+
   function createWorkspacePreviewLineRow(lineNumberValue: number, contentNode?: Node): HTMLElement {
     const row = document.createElement("div");
     row.dataset.picodexFilesPreviewLine = "true";
@@ -1318,9 +1341,26 @@ export function installBootstrapFilesModule(args: {
     return row;
   }
 
-  function splitWorkspacePreviewHighlightedLines(highlightedHtml: string): DocumentFragment[] {
+  function splitWorkspacePreviewHighlightedLines(highlightedHtml: string): {
+    className: string;
+    styleText: string;
+    lines: Node[];
+  } {
     const template = document.createElement("template");
     template.innerHTML = highlightedHtml;
+
+    const pre = template.content.querySelector("pre");
+    const code = pre?.querySelector("code");
+    const shikiLines = code
+      ? Array.from(code.querySelectorAll(":scope > span.line")).map((line) => line.cloneNode(true))
+      : [];
+    if (shikiLines.length > 0) {
+      return {
+        className: pre?.className ?? "",
+        styleText: pre?.getAttribute("style") ?? "",
+        lines: shikiLines,
+      };
+    }
 
     const lines: DocumentFragment[] = [];
     const originalElementStack: Element[] = [];
@@ -1381,7 +1421,11 @@ export function installBootstrapFilesModule(args: {
     startNewLine();
     Array.from(template.content.childNodes).forEach(visitNode);
 
-    return lines.length > 0 ? lines : [document.createDocumentFragment()];
+    return {
+      className: pre?.className ?? "",
+      styleText: pre?.getAttribute("style") ?? "",
+      lines: lines.length > 0 ? lines : [document.createDocumentFragment()],
+    };
   }
 
   function renderWorkspacePreviewContent(contents: string): HTMLElement {
@@ -1394,16 +1438,17 @@ export function installBootstrapFilesModule(args: {
     );
 
     if (filesState.previewHighlightedHtml) {
-      const languageClass = filesState.previewHighlightedLanguage
-        ? `language-${filesState.previewHighlightedLanguage}`
-        : "";
-      const highlightedLines = splitWorkspacePreviewHighlightedLines(
-        filesState.previewHighlightedHtml,
-      );
+      const highlighted = splitWorkspacePreviewHighlightedLines(filesState.previewHighlightedHtml);
 
-      highlightedLines.forEach((fragment, index) => {
+      highlighted.lines.forEach((fragment, index) => {
         const code = document.createElement("code");
-        code.className = ["hljs", languageClass].filter(Boolean).join(" ");
+        code.dataset.picodexSyntaxHighlight = "true";
+        if (highlighted.className) {
+          code.className = highlighted.className;
+        }
+        if (highlighted.styleText) {
+          code.setAttribute("style", highlighted.styleText);
+        }
         if (fragment.childNodes.length === 0) {
           code.textContent = " ";
         } else {
@@ -1418,7 +1463,6 @@ export function installBootstrapFilesModule(args: {
     const lines = contents.length > 0 ? contents.split("\n") : [""];
     lines.forEach((line, index) => {
       const lineContent = document.createElement("code");
-      lineContent.className = "hljs";
       lineContent.textContent = line.length > 0 ? line : " ";
       editor.appendChild(createWorkspacePreviewLineRow(index + 1, lineContent));
     });

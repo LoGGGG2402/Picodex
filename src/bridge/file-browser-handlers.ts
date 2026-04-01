@@ -23,6 +23,7 @@ import {
   type WorkspaceBrowserBridgeContext,
 } from "./workspace-browser.js";
 import { isPathInsideRoot, isWorkspacePreviewImageMimeType, looksLikeBinaryFile } from "./workspace.js";
+import { highlightWorkspacePreviewCode } from "./workspace-preview-highlighter.js";
 
 export interface FileBrowserContext extends WorkspaceBrowserBridgeContext {
   workspaceRootLabels: Map<string, string>;
@@ -259,6 +260,28 @@ export async function readWorkspaceFile(
     size: stats.size,
     contents: contents.toString("utf8"),
   };
+}
+
+export async function highlightWorkspaceFile(
+  _bridge: FileBrowserContext,
+  params: unknown,
+): Promise<{ html: string; language: string }> {
+  const contents =
+    isJsonRecord(params) && typeof params.contents === "string" ? params.contents : "";
+  if (!contents) {
+    return { html: "", language: "" };
+  }
+
+  const language =
+    isJsonRecord(params) && typeof params.language === "string" ? params.language : "";
+  const themeVariant =
+    isJsonRecord(params) && typeof params.themeVariant === "string" ? params.themeVariant : "";
+
+  return highlightWorkspacePreviewCode({
+    code: contents,
+    language,
+    themeVariant,
+  });
 }
 
 export async function resolveWorkspaceFileDownload(

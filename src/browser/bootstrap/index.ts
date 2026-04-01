@@ -3,6 +3,7 @@ import { serializeInlineScriptWithDeclarations } from "../inline-script.js";
 import { installBootstrapBridgeModule } from "./bridge-module.js";
 import { installBootstrapFilesModule } from "./files-module.js";
 import { bootstrapPicodexInBrowser } from "./browser-runtime.js";
+import { installBootstrapModelConfigModule } from "./model-config-module.js";
 import { installBootstrapMobileSidebarModule } from "./mobile-sidebar-module.js";
 import { installBootstrapOpenInAppModule } from "./open-in-app-module.js";
 import { installBootstrapSettingsImportModule } from "./settings-import-module.js";
@@ -19,6 +20,7 @@ export function renderBootstrapScript(
     installBootstrapThemeModule,
     installBootstrapSettingsImportModule,
     installBootstrapFilesModule,
+    installBootstrapModelConfigModule,
     installBootstrapOpenInAppModule,
     installBootstrapMobileSidebarModule,
     installBootstrapBridgeModule,

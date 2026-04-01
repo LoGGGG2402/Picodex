@@ -64,6 +64,7 @@ export interface LifecycleContext {
   listWorkspaceFileRoots(): Promise<unknown>;
   listWorkspaceDirectory(params: unknown): Promise<unknown>;
   readWorkspaceFile(params: unknown): Promise<unknown>;
+  highlightWorkspaceFile(params: unknown): Promise<unknown>;
   searchWorkspaceBrowserFiles(params: unknown): Promise<unknown>;
   handleLocalJsonRpcRequest(method: string, params: unknown): Promise<{ handled: true; result: unknown } | { handled: false }>;
   listExperimentalFeatures(params: unknown): { data: Array<{ name: string; enabled: boolean }>; nextCursor: string | null };
@@ -85,6 +86,11 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
 
   try {
     switch (method) {
+      case "app-server/request":
+        return buildIpcSuccessResponse(
+          requestId,
+          await handleAllowedAppServerIpcRequest(bridge, payload.params),
+        );
       case "desktop-workspace-import/list":
         return buildIpcSuccessResponse(requestId, await bridge.listDesktopWorkspaceImportCandidates());
       case "desktop-workspace-import/apply":
@@ -113,6 +119,8 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
         return buildIpcSuccessResponse(requestId, await bridge.listWorkspaceDirectory(payload.params));
       case "workspace-files/read":
         return buildIpcSuccessResponse(requestId, await bridge.readWorkspaceFile(payload.params));
+      case "workspace-files/highlight":
+        return buildIpcSuccessResponse(requestId, await bridge.highlightWorkspaceFile(payload.params));
       case "workspace-files/search":
         return buildIpcSuccessResponse(requestId, await bridge.searchWorkspaceBrowserFiles(payload.params));
       default:
@@ -121,6 +129,35 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
   } catch (error) {
     return buildIpcErrorResponse(requestId, error instanceof Error ? error.message : String(error));
   }
+}
+
+const ALLOWED_BROWSER_APP_SERVER_IPC_METHODS = new Set([
+  "config/batchWrite",
+  "config/read",
+  "config/value/write",
+  "model/list",
+]);
+
+async function handleAllowedAppServerIpcRequest(
+  bridge: LifecycleContext,
+  params: unknown,
+): Promise<unknown> {
+  if (!isJsonRecord(params)) {
+    throw new Error("Invalid app-server IPC params.");
+  }
+
+  const requestedMethod =
+    typeof params.method === "string" ? params.method.trim() : "";
+  if (!requestedMethod) {
+    throw new Error("Missing app-server request method.");
+  }
+
+  if (!ALLOWED_BROWSER_APP_SERVER_IPC_METHODS.has(requestedMethod)) {
+    throw new Error(`App-server request "${requestedMethod}" is not allowed from browser IPC.`);
+  }
+
+  const requestedParams = "params" in params ? params.params : undefined;
+  return sendLocalRequest(bridge, requestedMethod, requestedParams);
 }
 
 export function bindProcess(bridge: LifecycleContext): void {

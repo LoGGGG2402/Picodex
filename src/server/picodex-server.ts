@@ -16,6 +16,7 @@ import { WebSocket, WebSocketServer } from "ws";
 
 import { debugLog, warnOnceLog } from "../core/debug.js";
 import { getUnsupportedBridgeNotice } from "./native-policy.js";
+import { BrowserFileUploadStore } from "./browser-file-upload-store.js";
 import type {
   JsonRecord,
   BrowserToServerEnvelope,
@@ -104,6 +105,7 @@ export class PicodexServer {
   private readonly terminalSessionRoutes = new Map<string, TerminalSessionRoute>();
   private readonly terminalSessionIdsByConversation = new Map<string, string>();
   private readonly pendingBrowserIpcRequests = new Map<string, PendingBrowserIpcRequest>();
+  private readonly browserFileUploadStore = new BrowserFileUploadStore();
   private indexHtmlPromise?: Promise<string>;
 
   constructor(private readonly options: PicodexServerOptions) {
@@ -134,6 +136,7 @@ export class PicodexServer {
   }
 
   async listen(): Promise<void> {
+    await this.browserFileUploadStore.initialize();
     await new Promise<void>((resolvePromise, reject) => {
       this.httpServer.once("error", reject);
       this.httpServer.listen(this.options.listenPort, this.options.listenHost, () => {
@@ -262,6 +265,11 @@ export class PicodexServer {
       return;
     }
 
+    if (url.pathname === "/browser-file-upload") {
+      await this.handleBrowserFileUploadRequest(request, url, response);
+      return;
+    }
+
     const relativePath = url.pathname.replace(/^\/+/, "");
     const absolutePath = resolve(this.options.webviewRoot, relativePath);
     if (!absolutePath.startsWith(`${this.options.webviewRoot}${sep}`)) {
@@ -338,6 +346,45 @@ export class PicodexServer {
       response.statusCode = 400;
       response.setHeader("Cache-Control", "no-store");
       response.end(error instanceof Error ? error.message : "Failed to prepare workspace download");
+    }
+  }
+
+  private async handleBrowserFileUploadRequest(
+    request: IncomingMessage,
+    url: URL,
+    response: ServerResponse,
+  ): Promise<void> {
+    if (!this.isAuthorized(url.searchParams.get("token"))) {
+      response.statusCode = 401;
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.end(JSON.stringify({ error: "Unauthorized" }));
+      return;
+    }
+
+    if ((request.method ?? "GET").toUpperCase() !== "POST") {
+      response.statusCode = 405;
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.end(JSON.stringify({ error: "Method not allowed" }));
+      return;
+    }
+
+    try {
+      const result = await this.browserFileUploadStore.handleMultipartUpload(request);
+      response.statusCode = 200;
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.end(JSON.stringify(result));
+    } catch (error) {
+      response.statusCode = 400;
+      response.setHeader("Cache-Control", "no-store");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.end(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Failed to upload files.",
+        }),
+      );
     }
   }
 

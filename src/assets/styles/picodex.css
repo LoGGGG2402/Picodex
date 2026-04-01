@@ -74,19 +74,6 @@ html[data-picodex="true"] {
     --color-token-focus-border,
     var(--color-border-focus, var(--picodex-accent))
   );
-  --picodex-syntax-foreground: var(--vscode-editor-foreground, #d4d4d4);
-  --picodex-syntax-comment: #6a9955;
-  --picodex-syntax-keyword: #c586c0;
-  --picodex-syntax-string: #ce9178;
-  --picodex-syntax-number: #b5cea8;
-  --picodex-syntax-type: #4ec9b0;
-  --picodex-syntax-function: #dcdcaa;
-  --picodex-syntax-variable: #9cdcfe;
-  --picodex-syntax-constant: #4fc1ff;
-  --picodex-syntax-attribute: #92c5f8;
-  --picodex-syntax-tag: #569cd6;
-  --picodex-syntax-regexp: #d16969;
-  --picodex-syntax-meta: #c8c8c8;
   --picodex-preview-editor-bg: var(--vscode-editor-background, var(--color-token-bg-primary, #111111));
   --picodex-preview-gutter-bg: var(
     --vscode-editorGutter-background,
@@ -143,6 +130,691 @@ html[data-picodex="true"] #picodex-settings-modal-host {
 
 html[data-picodex="true"] #picodex-settings-modal-host[hidden] {
   display: none;
+}
+
+html[data-picodex="true"] #picodex-model-config-host {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483645;
+  pointer-events: none;
+}
+
+html[data-picodex="true"] #picodex-model-config-host[hidden] {
+  display: none;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-backdrop="true"] {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at top, color-mix(in srgb, var(--picodex-accent) 10%, transparent), transparent 28%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #08111d 10%, transparent),
+      color-mix(in srgb, #08111d 22%, transparent)
+    );
+  backdrop-filter: blur(16px) saturate(1.04);
+  pointer-events: auto;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-panel="true"] {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  width: min(800px, calc(100vw - 28px));
+  max-height: calc(100vh - 32px);
+  border: 1px solid color-mix(in srgb, var(--picodex-border-heavy) 40%, white 30%);
+  border-radius: 28px;
+  background:
+    radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--picodex-accent) 8%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-bg) 98%, white 2%) 0%,
+      color-mix(in srgb, var(--picodex-surface-bg) 96%, white 4%) 100%
+    );
+  box-shadow:
+    0 28px 80px rgba(7, 15, 28, 0.22),
+    0 12px 28px rgba(7, 15, 28, 0.12),
+    inset 0 1px 0 color-mix(in srgb, white 58%, transparent);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-header="true"] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--picodex-border) 58%, transparent);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--picodex-surface-subtle) 72%, transparent),
+      transparent 64%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-bg) 98%, white 2%),
+      color-mix(in srgb, var(--picodex-surface-bg) 94%, transparent)
+    );
+}
+
+html[data-picodex="true"] [data-picodex-model-config-title="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-title="true"] strong,
+html[data-picodex="true"] [data-picodex-model-config-title="true"] p {
+  margin: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-title="true"] strong {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--picodex-text);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-title="true"] p {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--picodex-surface-subtle) 56%, transparent);
+  color: var(--picodex-text-tertiary);
+  font-size: 10px;
+  line-height: 1.45;
+  font-family: var(--font-mono, var(--vscode-editor-font-family, monospace));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-body="true"] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 14px;
+  overflow: auto;
+  min-height: 0;
+  padding: 16px;
+  scrollbar-color: var(--color-token-scrollbar-slider-background, var(--picodex-border-heavy))
+    transparent;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-form="true"] {
+  min-height: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-shell="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-sidebar="true"] {
+  display: block;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-main="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-hero="true"] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+  grid-template-areas:
+    "kicker facts"
+    "title facts"
+    "badges facts";
+  align-items: start;
+  column-gap: 18px;
+  row-gap: 8px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-heavy) 42%, transparent);
+  border-radius: 20px;
+  background:
+    radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--picodex-accent) 10%, transparent),
+      transparent 34%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-subtle) 86%, white 8%),
+      color-mix(in srgb, var(--picodex-surface-bg) 94%, white 4%)
+    );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 54%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-hero-kicker="true"] {
+  grid-area: kicker;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--picodex-text-secondary);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-hero-title="true"] {
+  grid-area: title;
+  margin: 0;
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--picodex-text);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-hero-copy="true"] {
+  margin: 0;
+  color: var(--picodex-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-badges="true"] {
+  grid-area: badges;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-badge="true"] {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border) 72%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--picodex-surface-bg) 88%, transparent);
+  color: var(--picodex-text);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-facts="true"] {
+  grid-area: facts;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-fact="true"] {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid color-mix(in srgb, var(--picodex-border-light) 56%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-fact-label="true"] {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--picodex-text-tertiary);
+  flex: 0 0 auto;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-fact-value="true"] {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--picodex-text);
+  word-break: break-word;
+  text-align: right;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 70%, transparent);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--picodex-surface-bg) 98%, white 2%),
+    color-mix(in srgb, var(--picodex-surface-subtle) 74%, transparent)
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 42%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-header="true"] {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-title="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-title="true"] strong,
+html[data-picodex="true"] [data-picodex-model-config-card-title="true"] p {
+  margin: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-title="true"] strong {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--picodex-text);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-title="true"] p {
+  color: var(--picodex-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 56ch;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-card-content="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-section="true"] {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 76%, transparent);
+  border-radius: 16px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-subtle) 82%, transparent),
+      color-mix(in srgb, var(--picodex-surface-bg) 78%, transparent)
+    );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-section="true"] h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--picodex-text-secondary);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure="true"] {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 70%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-bg) 98%, white 2%),
+      color-mix(in srgb, var(--picodex-surface-subtle) 74%, transparent)
+    );
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 42%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure-summary="true"] {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  color: var(--picodex-text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  list-style: none;
+  padding: 14px 14px 10px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure-summary="true"]::-webkit-details-marker {
+  display: none;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure-summary="true"]::before {
+  content: "+";
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--picodex-accent);
+  font-size: 14px;
+  line-height: 1;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure="true"][open]
+  [data-picodex-model-config-disclosure-summary="true"]::before {
+  content: "-";
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure-summary="true"]:hover {
+  background: color-mix(in srgb, var(--picodex-list-hover) 72%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure="true"] > :not(summary) {
+  padding: 0 14px 14px;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-disclosure-copy="true"] {
+  margin: -2px 0 0;
+  color: var(--picodex-text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-grid="true"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="defaults"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="execution"] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="provider"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="compact"] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+html[data-picodex="true"] [data-picodex-model-config-field="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  align-self: start;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 58%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--picodex-surface-bg) 78%, transparent);
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-field-label="true"] {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--picodex-text-secondary);
+  letter-spacing: 0.01em;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-field-hint="true"] {
+  color: var(--picodex-text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-input="true"],
+html[data-picodex="true"] [data-picodex-model-config-textarea="true"] {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border) 82%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--picodex-surface-bg) 98%, transparent);
+  color: var(--picodex-text);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.4;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 28%, transparent),
+    0 1px 0 color-mix(in srgb, black 6%, transparent);
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-input="true"]:focus,
+html[data-picodex="true"] [data-picodex-model-config-textarea="true"]:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--picodex-focus) 56%, var(--picodex-border-heavy));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 8%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--picodex-focus) 18%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-textarea="true"] {
+  min-height: 150px;
+  resize: vertical;
+  font-family: var(--font-mono, var(--vscode-editor-font-family, monospace));
+}
+
+html[data-picodex="true"] [data-picodex-model-config-meta="true"] {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--picodex-border-light) 64%, transparent);
+  border-radius: 14px;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--picodex-surface-bg) 88%, transparent),
+      color-mix(in srgb, var(--picodex-surface-subtle) 64%, transparent)
+    );
+  color: var(--picodex-text-secondary);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-footer="true"] {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 14px 16px 16px;
+  margin-left: -16px;
+  margin-right: -16px;
+  margin-bottom: -16px;
+  border-top: 1px solid color-mix(in srgb, var(--picodex-border-light) 56%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--picodex-surface-bg) 0%, transparent),
+    color-mix(in srgb, var(--picodex-surface-bg) 94%, transparent) 18%,
+    color-mix(in srgb, var(--picodex-surface-bg) 99%, transparent) 100%
+  );
+  backdrop-filter: blur(8px);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-status="true"] {
+  margin: 0;
+  color: var(--picodex-text-secondary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-status="true"][data-tone="success"] {
+  color: var(--picodex-success, #15803d);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-status="true"][data-tone="error"] {
+  color: var(--picodex-danger, #b91c1c);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-actions="true"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-button="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  height: 38px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--picodex-button-border) 86%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--picodex-button-secondary-bg) 94%, transparent);
+  color: var(--picodex-text);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease,
+    opacity 120ms ease;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-button="true"][data-variant="primary"] {
+  border-color: color-mix(in srgb, var(--picodex-button-primary-bg) 70%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--picodex-button-primary-bg) 96%, white 4%) 0%,
+    color-mix(in srgb, var(--picodex-button-primary-bg) 88%, black 12%) 100%
+  );
+  color: var(--picodex-button-primary-fg);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--picodex-button-primary-bg) 24%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-button="true"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--picodex-button-secondary-hover) 94%, transparent);
+  transform: translateY(-1px);
+}
+
+html[data-picodex="true"]
+  [data-picodex-model-config-button="true"][data-variant="primary"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--picodex-button-primary-hover) 94%, white 6%);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-button="true"]:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+html[data-picodex="true"] [data-picodex-model-config-field="true"]:focus-within {
+  border-color: color-mix(in srgb, var(--picodex-focus) 44%, var(--picodex-border-heavy));
+  background: color-mix(in srgb, var(--picodex-surface-bg) 74%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--picodex-focus) 18%, transparent);
+  transform: translateY(-1px);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-section="true"]:hover,
+html[data-picodex="true"] [data-picodex-model-config-disclosure="true"]:hover {
+  border-color: color-mix(in srgb, var(--picodex-border-heavy) 76%, transparent);
+}
+
+html[data-picodex="true"] [data-picodex-model-config-empty="true"] {
+  margin: 0;
+  padding: 14px 16px;
+  border: 1px dashed var(--picodex-border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--picodex-surface-subtle) 72%, transparent);
+  color: var(--picodex-text-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1080px) {
+  html[data-picodex="true"] [data-picodex-model-config-hero="true"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "kicker"
+      "title"
+      "badges"
+      "facts";
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="defaults"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="execution"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"][data-layout="compact"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  html[data-picodex="true"] [data-picodex-model-config-panel="true"] {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-fact="true"] {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-fact-value="true"] {
+    text-align: left;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-footer="true"] {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: -16px;
+    margin-right: -16px;
+    margin-bottom: -16px;
+    padding: 14px 16px 16px;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-actions="true"] {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-button="true"] {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 960px) {
+  html[data-picodex="true"] [data-picodex-model-config-panel="true"] {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 html[data-picodex="true"] [data-picodex-settings-backdrop="true"] {
@@ -729,6 +1401,36 @@ html[data-picodex="true"] [data-picodex-manual-workspace-actions="true"] {
   justify-content: flex-end;
   gap: 8px;
   padding-top: 4px;
+}
+
+html[data-picodex="true"] [data-picodex-browser-upload-panel="true"] {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--picodex-border-light);
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--picodex-surface-subtle) 94%, rgba(255, 255, 255, 0.02)) 0%,
+    color-mix(in srgb, var(--picodex-surface-subtle) 82%, transparent) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+html[data-picodex="true"] [data-picodex-browser-upload-summary="true"] {
+  margin: 0;
+  color: var(--picodex-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+html[data-picodex="true"] [data-picodex-browser-upload-hint="true"] {
+  margin: 0;
+  color: var(--picodex-text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 html[data-picodex="true"] [data-picodex-manual-file-form] {
@@ -1495,7 +2197,7 @@ html[data-picodex="true"] [data-picodex-files-preview-editor="true"] {
 html[data-picodex="true"] [data-picodex-files-preview-line="true"] {
   display: grid;
   grid-template-columns: var(--picodex-files-line-number-width, 4ch) minmax(0, 1fr);
-  width: max-content;
+  width: 100%;
   min-width: 100%;
   align-items: stretch;
   min-height: calc(var(--vscode-editor-font-size, 12px) * 1.7);
@@ -1526,7 +2228,8 @@ html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] {
   font-size: var(--vscode-editor-font-size, 12px);
   font-weight: var(--vscode-editor-font-weight, 400);
   line-height: calc(var(--vscode-editor-font-size, 12px) * 1.7);
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow: visible;
   tab-size: 2;
 }
@@ -1542,136 +2245,15 @@ html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code 
   tab-size: inherit;
 }
 
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code.hljs {
+html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code[data-picodex-syntax-highlight="true"] {
   padding: 0 !important;
+  text-rendering: geometricPrecision;
+  font-variant-ligatures: contextual;
 }
 
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code.hljs,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code.hljs span {
-  color: var(--picodex-syntax-foreground);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-keyword,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-template-tag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-tag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-meta .hljs-keyword,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-type,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title.class_,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .class_ {
-  font-weight: 650;
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-function .hljs-title,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title.function_,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .function_,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-built_in,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-constant,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .constant_ {
-  font-weight: 600;
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-comment,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-quote {
-  color: var(--picodex-syntax-comment);
-  font-style: italic;
-  opacity: 0.92;
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-doctag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-keyword,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-template-tag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-tag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-tag .hljs-name,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-meta .hljs-keyword {
-  color: var(--picodex-syntax-keyword);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-string,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-meta-string,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-template-variable {
-  color: var(--picodex-syntax-string);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-number,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-literal,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-symbol,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-bullet {
-  color: var(--picodex-syntax-number);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-type,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-section,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title.class_,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .class_ {
-  color: var(--picodex-syntax-type);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-function .hljs-title,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-title.function_,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .function_ {
-  color: var(--picodex-syntax-function);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-variable,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-property,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-params,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .params,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-id,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-class {
-  color: var(--picodex-syntax-variable);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-attr,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-attribute,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-attr,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .attribute__ {
-  color: var(--picodex-syntax-attribute);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-built_in,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-constant,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .constant_ {
-  color: var(--picodex-syntax-constant);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-regexp,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-link {
-  color: var(--picodex-syntax-regexp);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-meta,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-meta .hljs-string {
-  color: var(--picodex-syntax-meta);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-tag,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-name,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-selector-pseudo {
-  color: var(--picodex-syntax-tag);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-operator,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-punctuation,
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-subst {
-  color: var(--picodex-syntax-foreground);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-emphasis {
-  font-style: italic;
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-strong {
-  font-weight: 700;
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-addition {
-  background: color-mix(in srgb, #2ea043 22%, transparent);
-}
-
-html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] .hljs-deletion {
-  background: color-mix(in srgb, #f85149 18%, transparent);
+html[data-picodex="true"] [data-picodex-files-preview-line-content="true"] code[data-picodex-syntax-highlight="true"] .line {
+  display: block;
+  min-height: inherit;
 }
 
 html[data-picodex="true"] [data-picodex-files-empty-state="true"] {
@@ -1690,19 +2272,6 @@ html[data-picodex="true"][data-picodex-theme-variant="light"] body {
 }
 
 html[data-picodex="true"][data-picodex-theme-variant="light"] {
-  --picodex-syntax-foreground: #1f1f1f;
-  --picodex-syntax-comment: #008000;
-  --picodex-syntax-keyword: #0000ff;
-  --picodex-syntax-string: #a31515;
-  --picodex-syntax-number: #098658;
-  --picodex-syntax-type: #267f99;
-  --picodex-syntax-function: #795e26;
-  --picodex-syntax-variable: #001080;
-  --picodex-syntax-constant: #0070c1;
-  --picodex-syntax-attribute: #e50000;
-  --picodex-syntax-tag: #800000;
-  --picodex-syntax-regexp: #811f3f;
-  --picodex-syntax-meta: #af00db;
   --picodex-preview-editor-bg: #fffffe;
   --picodex-preview-gutter-bg: #f5f5f5;
   --picodex-preview-row-border: rgba(60, 60, 60, 0.12);
@@ -1816,6 +2385,29 @@ html[data-picodex="true"] [aria-label="Open in Popout Window"] {
 
   html[data-picodex="true"] [data-picodex-import-actions] button {
     width: 100%;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-panel="true"] {
+    width: calc(100vw - 16px);
+    max-height: calc(100vh - 20px);
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-grid="true"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-footer="true"] {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-actions="true"] {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  html[data-picodex="true"] [data-picodex-model-config-button="true"] {
+    flex: 1 1 0;
   }
 
   html[data-picodex="true"] [data-picodex-files-drawer="true"] {

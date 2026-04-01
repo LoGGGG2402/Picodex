@@ -2,8 +2,8 @@
 
 import { randomUUID } from "node:crypto";
 import { watch } from "node:fs";
-import { readFile, readdir } from "node:fs/promises";
-import { basename, dirname, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { basename, dirname } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
@@ -51,7 +51,6 @@ async function main(): Promise<void> {
   const picodexCssPath = fileURLToPath(new URL("./assets/styles/picodex.css", import.meta.url));
   const importIconSvgPath = fileURLToPath(new URL("./assets/images/import.svg", import.meta.url));
   const bundle = await loadCodexBundle(resolvedCodexPaths);
-  const highlightModuleHref = await resolveHighlightModuleHref(bundle.webviewRoot);
   const relay = await AppServerBridge.connect({
     appPath: resolvedCodexPaths.appPath,
     appAsarPath: resolvedCodexPaths.appAsarPath,
@@ -79,7 +78,6 @@ async function main(): Promise<void> {
         bootstrapScript: renderBootstrapScript({
           sentryOptions,
           stylesheetHref: POCODEX_STYLESHEET_HREF,
-          highlightModuleHref,
           importIconSvg: await readFile(importIconSvgPath, "utf8"),
         }),
         stylesheetHref: POCODEX_STYLESHEET_HREF,
@@ -132,20 +130,6 @@ async function main(): Promise<void> {
   console.log(`Using direct app-server bridge from ${resolvedCodexPaths.codexCliPath}`);
   if (options.devMode) {
     console.log(`Watching ${picodexCssPath} for stylesheet changes`);
-  }
-}
-
-async function resolveHighlightModuleHref(webviewRoot: string): Promise<string | undefined> {
-  try {
-    const assetsDirectory = join(webviewRoot, "assets");
-    const assetNames = await readdir(assetsDirectory);
-    const highlightAsset = assetNames
-      .filter((name) => /^highlight-code-.*\.js$/u.test(name))
-      .sort()
-      .at(-1);
-    return highlightAsset ? `/assets/${highlightAsset}` : undefined;
-  } catch {
-    return undefined;
   }
 }
 

@@ -37,6 +37,7 @@ import {
 } from "./lifecycle.js";
 import {
   handleFuzzyFileSearch as handleFuzzyFileSearchRequest,
+  highlightWorkspaceFile as highlightWorkspaceBrowserFile,
   listHostDirectory as listHostDirectoryEntries,
   listWorkspaceDirectory as listWorkspaceDirectoryEntries,
   listWorkspaceFileRoots as listWorkspaceFileRootOptions,
@@ -395,6 +396,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
   private async listWorkspaceFileRoots(): Promise<{ roots: WorkspaceBrowserRoot[] }> { return listWorkspaceFileRootOptions(this.createFileBrowserContext()); }
   private async listWorkspaceDirectory(params: unknown): Promise<{ root: string; path: string; relativePath: string; entries: WorkspaceBrowserEntry[] }> { return listWorkspaceDirectoryEntries(this.createFileBrowserContext(), params); }
   private async readWorkspaceFile(params: unknown): Promise<{ root: string; path: string; relativePath: string; kind: "text" | "image" | "pdf" | "binary"; mimeType: string; size: number; contents?: string; contentsBase64?: string }> { return readWorkspaceBrowserFile(this.createFileBrowserContext(), params); }
+  private async highlightWorkspaceFile(params: unknown): Promise<{ html: string; language: string }> { return highlightWorkspaceBrowserFile(this.createFileBrowserContext(), params); }
   async resolveWorkspaceFileDownload(filePath: string): Promise<{ path: string; fileName: string; mimeType: string; size: number }> { return resolveWorkspaceBrowserFileDownload(this.createFileBrowserContext(), filePath); }
   private async searchWorkspaceBrowserFiles(params: unknown): Promise<{ query: string; files: WorkspaceBrowserSearchResult[] }> { return searchWorkspaceBrowserFileEntries(this.createFileBrowserContext(), params); }
   private async startFuzzyFileSearchSession(params: unknown): Promise<{ sessionId: string; roots: string[] }> { return startFuzzySearchSession(this.createFileBrowserContext(), params); }
@@ -575,6 +577,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       listWorkspaceFileRoots: () => this.listWorkspaceFileRoots(),
       listWorkspaceDirectory: (params: unknown) => this.listWorkspaceDirectory(params),
       readWorkspaceFile: (params: unknown) => this.readWorkspaceFile(params),
+      highlightWorkspaceFile: (params: unknown) => this.highlightWorkspaceFile(params),
       searchWorkspaceBrowserFiles: (params: unknown) => this.searchWorkspaceBrowserFiles(params),
       handleLocalJsonRpcRequest: (method: string, params: unknown) => this.handleLocalJsonRpcRequest(method, params),
       listExperimentalFeatures: (params: unknown) => this.listExperimentalFeatures(params),

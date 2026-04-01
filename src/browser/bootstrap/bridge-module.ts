@@ -23,6 +23,7 @@ export function installBootstrapBridgeModule(args: {
   syncPicodexThemeFromPersistedAtomUpdate: (key: unknown, value: unknown) => void;
   openDesktopImportDialog: (mode: "first-run" | "manual") => Promise<void>;
   maybePromptForDesktopImport: () => Promise<void>;
+  openBrowserAttachmentPickerDialog: (title: string) => Promise<unknown[]>;
   openManualFilePickerDialog: (title: string) => Promise<unknown[]>;
   refreshWorkspaceFileRoots: () => Promise<void>;
   revealWorkspaceFile: (path: string) => Promise<void>;
@@ -43,6 +44,7 @@ export function installBootstrapBridgeModule(args: {
     syncPicodexThemeFromPersistedAtomUpdate,
     openDesktopImportDialog,
     maybePromptForDesktopImport,
+    openBrowserAttachmentPickerDialog,
     openManualFilePickerDialog,
     refreshWorkspaceFileRoots,
     revealWorkspaceFile,
@@ -109,7 +111,7 @@ export function installBootstrapBridgeModule(args: {
           isRecord(params) && typeof params.pickerTitle === "string" && params.pickerTitle.trim()
             ? params.pickerTitle
             : "Select files";
-        const files = await openManualFilePickerDialog(pickerTitle);
+        const files = await openBrowserAttachmentPickerDialog(pickerTitle);
         dispatchHostMessage({
           type: "fetch-response",
           requestId: message.requestId,

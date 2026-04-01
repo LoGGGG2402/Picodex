@@ -26,6 +26,7 @@ export function installBootstrapSettingsImportModule(args: {
   installNativeSettingsOverride: () => void;
   maybePromptForDesktopImport: () => Promise<void>;
   openDesktopImportDialog: (mode: DesktopImportMode) => Promise<void>;
+  openBrowserAttachmentPickerDialog: (title: string) => Promise<HostResolvedFile[]>;
   openManualFilePickerDialog: (title: string) => Promise<HostResolvedFile[]>;
   callPicodexIpc: (method: string, params?: unknown) => Promise<unknown>;
   formatDesktopImportPath: (path: string) => string;
@@ -52,6 +53,7 @@ export function installBootstrapSettingsImportModule(args: {
 
   const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "picodexEmbed";
   const POCODEX_SETTINGS_EMBED_VALUE = "settings-modal";
+  const TOKEN_STORAGE_KEY = "__picodex_token";
 
   let isImportUiObserverStarted = false;
   let isNativeSettingsOverrideInstalled = false;
@@ -1116,6 +1118,156 @@ export function installBootstrapSettingsImportModule(args: {
     }
   }
 
+  async function openBrowserAttachmentPickerDialog(title: string): Promise<HostResolvedFile[]> {
+    ensureHostAttached(importHost);
+    importHost.hidden = false;
+    importHost.replaceChildren();
+
+    return new Promise<HostResolvedFile[]>((resolve) => {
+      let isSettled = false;
+
+      const close = (files: HostResolvedFile[]): void => {
+        if (isSettled) {
+          return;
+        }
+        isSettled = true;
+        importHost.hidden = true;
+        importHost.replaceChildren();
+        resolve(files);
+      };
+
+      const backdrop = document.createElement("div");
+      backdrop.dataset.picodexImportBackdrop = "true";
+
+      const dialog = document.createElement("section");
+      dialog.dataset.picodexImportDialog = "true";
+
+      const header = document.createElement("div");
+      header.dataset.picodexImportHeader = "true";
+
+      const heading = document.createElement("h2");
+      heading.textContent = title;
+
+      const subtitle = document.createElement("p");
+      subtitle.textContent =
+        "Choose files from this browser to upload them to the Picodex host, or switch to manual host paths.";
+
+      header.append(heading, subtitle);
+
+      const panel = document.createElement("div");
+      panel.dataset.picodexBrowserUploadPanel = "true";
+
+      const summary = document.createElement("p");
+      summary.dataset.picodexBrowserUploadSummary = "true";
+      summary.textContent = "Select one or more files from your browser device to attach them.";
+
+      const hint = document.createElement("p");
+      hint.dataset.picodexBrowserUploadHint = "true";
+      hint.textContent =
+        "Uploaded files are stored temporarily on the Picodex host and attached as normal prompt files.";
+
+      const input = document.createElement("input");
+      input.type = "file";
+      input.multiple = true;
+      input.hidden = true;
+      input.tabIndex = -1;
+
+      const actions = document.createElement("div");
+      actions.dataset.picodexManualFileActions = "true";
+
+      const cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.textContent = "Cancel";
+      cancelButton.addEventListener("click", () => {
+        close([]);
+      });
+
+      const manualButton = document.createElement("button");
+      manualButton.type = "button";
+      manualButton.textContent = "Enter host paths";
+      manualButton.addEventListener("click", async () => {
+        if (isSettled) {
+          return;
+        }
+
+        isSettled = true;
+        importHost.hidden = true;
+        importHost.replaceChildren();
+        resolve(await openManualFilePickerDialog(title));
+      });
+
+      const chooseButton = document.createElement("button");
+      chooseButton.type = "button";
+      chooseButton.dataset.variant = "primary";
+      chooseButton.textContent = "Choose files";
+
+      let isUploading = false;
+      const setBusyState = (next: boolean): void => {
+        isUploading = next;
+        cancelButton.disabled = next;
+        manualButton.disabled = next;
+        chooseButton.disabled = next;
+        chooseButton.textContent = next ? "Uploading..." : "Choose files";
+      };
+
+      const handleSelection = async (): Promise<void> => {
+        const selectedFiles = input.files ? Array.from(input.files) : [];
+        input.value = "";
+
+        if (selectedFiles.length === 0) {
+          close([]);
+          return;
+        }
+
+        setBusyState(true);
+
+        try {
+          summary.textContent = `Uploading ${selectedFiles.length} file${selectedFiles.length === 1 ? "" : "s"}...`;
+          const files = await uploadBrowserFiles(selectedFiles);
+          close(files);
+        } catch (error) {
+          setBusyState(false);
+          summary.textContent = "Select one or more files from your browser device to attach them.";
+          showNotice(error instanceof Error ? error.message : "Failed to upload selected files.");
+        }
+      };
+
+      input.addEventListener("change", () => {
+        if (isUploading) {
+          return;
+        }
+        void handleSelection();
+      });
+
+      input.addEventListener("cancel", () => {
+        if (isUploading) {
+          return;
+        }
+        close([]);
+      });
+
+      chooseButton.addEventListener("click", () => {
+        if (isUploading) {
+          return;
+        }
+        input.click();
+      });
+
+      actions.append(cancelButton, manualButton, chooseButton);
+      panel.append(summary, hint, actions, input);
+      dialog.append(header, panel);
+      backdrop.appendChild(dialog);
+      backdrop.addEventListener("click", (event) => {
+        if (event.target !== backdrop) {
+          return;
+        }
+        close([]);
+      });
+
+      importHost.appendChild(backdrop);
+    });
+  }
+
   async function openManualFilePickerDialog(title: string): Promise<HostResolvedFile[]> {
     ensureHostAttached(importHost);
     importHost.hidden = false;
@@ -1230,6 +1382,41 @@ export function installBootstrapSettingsImportModule(args: {
     });
   }
 
+  async function uploadBrowserFiles(files: File[]): Promise<HostResolvedFile[]> {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file, file.name);
+    });
+
+    const url = new URL("/browser-file-upload", window.location.href);
+    const token = getStoredToken();
+    if (token) {
+      url.searchParams.set("token", token);
+    }
+
+    const response = await nativeFetch(url.toString(), {
+      method: "POST",
+      cache: "no-store",
+      credentials: "same-origin",
+      body: formData,
+    });
+
+    const payload = await parseJsonResponse(response);
+    if (!response.ok) {
+      const error =
+        isRecord(payload) && typeof payload.error === "string"
+          ? payload.error
+          : `Upload failed (${response.status}).`;
+      throw new Error(error);
+    }
+
+    const uploadedFiles = getResolvedHostFiles(payload);
+    if (uploadedFiles.length === 0) {
+      throw new Error("No files were uploaded.");
+    }
+    return uploadedFiles;
+  }
+
   async function callPicodexIpc(method: string, params?: unknown): Promise<unknown> {
     const response = await nativeFetch("/ipc-request", {
       method: "POST",
@@ -1254,6 +1441,24 @@ export function installBootstrapSettingsImportModule(args: {
     }
 
     return payload.result;
+  }
+
+  async function parseJsonResponse(response: Response): Promise<unknown> {
+    try {
+      return (await response.json()) as unknown;
+    } catch {
+      return null;
+    }
+  }
+
+  function getStoredToken(): string {
+    const url = new URL(window.location.href);
+    const tokenFromQuery = url.searchParams.get("token");
+    if (tokenFromQuery) {
+      sessionStorage.setItem(TOKEN_STORAGE_KEY, tokenFromQuery);
+      return tokenFromQuery;
+    }
+    return sessionStorage.getItem(TOKEN_STORAGE_KEY) ?? "";
   }
 
   function getImportedRoots(result: unknown): string[] {
@@ -1486,6 +1691,7 @@ export function installBootstrapSettingsImportModule(args: {
     installNativeSettingsOverride,
     maybePromptForDesktopImport,
     openDesktopImportDialog,
+    openBrowserAttachmentPickerDialog,
     openManualFilePickerDialog,
     callPicodexIpc,
     formatDesktopImportPath,
