@@ -37,9 +37,52 @@ export interface ThreadRecordsBridgeContext {
   sessionSubagentMetadataCache: Map<string, Promise<SessionSubagentMetadata | null>>;
   sessionThreadIndexCache: Map<string, Promise<SessionThreadIndexRecord | null>>;
   sessionSyntheticCollabCallCache: Map<string, Promise<SessionSyntheticCollabCallRecord[]>>;
+  threadRecordReadCache: Map<string, Promise<JsonRecord | null>>;
   getCodexHomePath(): string;
   sendLocalRequest(method: string, params?: unknown): Promise<unknown>;
 }
+
+const THREAD_READ_CONCURRENCY = 4;
+const THREAD_ENRICH_CONCURRENCY = 3;
+const THREAD_READ_OVERLOAD_RETRY_DELAYS_MS = [80, 160, 320, 640];
+
+class AsyncSemaphore {
+  private active = 0;
+  private readonly waiters: Array<() => void> = [];
+
+  constructor(private readonly limit: number) {}
+
+  async withPermit<T>(run: () => Promise<T>): Promise<T> {
+    await this.acquire();
+    try {
+      return await run();
+    } finally {
+      this.release();
+    }
+  }
+
+  private async acquire(): Promise<void> {
+    if (this.active < this.limit) {
+      this.active += 1;
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      this.waiters.push(resolve);
+    });
+    this.active += 1;
+  }
+
+  private release(): void {
+    this.active = Math.max(0, this.active - 1);
+    const next = this.waiters.shift();
+    if (next) {
+      next();
+    }
+  }
+}
+
+const threadReadSemaphore = new AsyncSemaphore(THREAD_READ_CONCURRENCY);
 
 export async function enrichThreadPayloadForMethod(
   bridge: ThreadRecordsBridgeContext,
@@ -52,8 +95,10 @@ export async function enrichThreadPayloadForMethod(
   }
 
   if (Array.isArray(payload)) {
-    return Promise.all(
-      payload.map((item) => enrichThreadPayloadForMethod(bridge, method, item, requestParams)),
+    return mapWithConcurrency(
+      payload,
+      THREAD_ENRICH_CONCURRENCY,
+      (item) => enrichThreadPayloadForMethod(bridge, method, item, requestParams),
     );
   }
 
@@ -70,7 +115,11 @@ export async function enrichThreadPayloadForMethod(
   const nextPayload: JsonRecord = { ...payload };
 
   if (Array.isArray(payload.data)) {
-    const enrichedData = await Promise.all(payload.data.map((item) => enrichThreadRecord(bridge, item)));
+    const enrichedData = await mapWithConcurrency(
+      payload.data,
+      THREAD_ENRICH_CONCURRENCY,
+      (item) => enrichThreadRecord(bridge, item),
+    );
     if (!arraysReferenceEqual(payload.data, enrichedData)) {
       nextPayload.data = enrichedData;
       changed = true;
@@ -78,8 +127,10 @@ export async function enrichThreadPayloadForMethod(
   }
 
   if (Array.isArray(payload.threads)) {
-    const enrichedThreads = await Promise.all(
-      payload.threads.map((item) => enrichThreadRecord(bridge, item)),
+    const enrichedThreads = await mapWithConcurrency(
+      payload.threads,
+      THREAD_ENRICH_CONCURRENCY,
+      (item) => enrichThreadRecord(bridge, item),
     );
     if (!arraysReferenceEqual(payload.threads, enrichedThreads)) {
       nextPayload.threads = enrichedThreads;
@@ -274,8 +325,10 @@ export async function resolveSessionSyntheticCollabCalls(
     return [];
   }
 
-  const threadEntries = await Promise.all(
-    resolvedAgentIds.map(async (agentId) => [agentId, await readThreadRecordById(bridge, agentId)] as const),
+  const threadEntries = await mapWithConcurrency(
+    resolvedAgentIds,
+    THREAD_ENRICH_CONCURRENCY,
+    async (agentId) => [agentId, await readThreadRecordById(bridge, agentId)] as const,
   );
   const threadByAgentId = new Map<string, JsonRecord | null>(threadEntries);
 
@@ -434,19 +487,86 @@ export async function readThreadRecordById(
   bridge: ThreadRecordsBridgeContext,
   threadId: string,
 ): Promise<JsonRecord | null> {
-  try {
-    const response = await bridge.sendLocalRequest("thread/read", {
-      threadId,
-      includeTurns: false,
-    });
-    if (!isJsonRecord(response) || !isJsonRecord(response.thread)) {
-      return null;
-    }
-    const enrichedThread = await enrichThreadRecord(bridge, response.thread);
-    return isJsonRecord(enrichedThread) ? enrichedThread : null;
-  } catch {
+  const normalizedThreadId = normalizeNonEmptyString(threadId);
+  if (!normalizedThreadId) {
     return null;
   }
+
+  const cached = bridge.threadRecordReadCache.get(normalizedThreadId);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = threadReadSemaphore.withPermit(async () => {
+    for (let attempt = 0; attempt <= THREAD_READ_OVERLOAD_RETRY_DELAYS_MS.length; attempt += 1) {
+      try {
+        const response = await bridge.sendLocalRequest("thread/read", {
+          threadId: normalizedThreadId,
+          includeTurns: false,
+        });
+        if (!isJsonRecord(response) || !isJsonRecord(response.thread)) {
+          return null;
+        }
+        const enrichedThread = await enrichThreadRecord(bridge, response.thread);
+        return isJsonRecord(enrichedThread) ? enrichedThread : null;
+      } catch (error) {
+        if (
+          !isOverloadedThreadReadError(error) ||
+          attempt >= THREAD_READ_OVERLOAD_RETRY_DELAYS_MS.length
+        ) {
+          return null;
+        }
+        await delay(THREAD_READ_OVERLOAD_RETRY_DELAYS_MS[attempt]);
+      }
+    }
+
+    return null;
+  });
+
+  bridge.threadRecordReadCache.set(normalizedThreadId, pending);
+  return pending;
+}
+
+function isOverloadedThreadReadError(error: unknown): boolean {
+  const message = normalizeError(error).message.toLowerCase();
+  return message.includes("server overloaded") || message.includes("retry later");
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const limitedConcurrency = Math.max(1, Math.min(concurrency, items.length));
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const worker = async (): Promise<void> => {
+    while (true) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      if (currentIndex >= items.length) {
+        return;
+      }
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex);
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: limitedConcurrency }, () => worker()),
+  );
+
+  return results;
 }
 
 async function loadSessionThreadIndexRecord(

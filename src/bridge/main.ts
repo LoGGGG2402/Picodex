@@ -167,6 +167,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
   private readonly sessionSubagentMetadataCache = new Map<string, Promise<SessionSubagentMetadata | null>>();
   private readonly sessionThreadIndexCache = new Map<string, Promise<SessionThreadIndexRecord | null>>();
   private readonly sessionSyntheticCollabCallCache = new Map<string, Promise<SessionSyntheticCollabCallRecord[]>>();
+  private readonly threadRecordReadCache = new Map<string, Promise<JsonRecord | null>>();
   private readonly syntheticCollabHydrationTimers = new Set<NodeJS.Timeout>();
   private readonly workspaceRoots = new Set<string>();
   private readonly workspaceRootLabels = new Map<string, string>();
@@ -683,6 +684,7 @@ export class AppServerBridge extends EventEmitter implements HostBridge {
       sessionSubagentMetadataCache: this.sessionSubagentMetadataCache,
       sessionThreadIndexCache: this.sessionThreadIndexCache,
       sessionSyntheticCollabCallCache: this.sessionSyntheticCollabCallCache,
+      threadRecordReadCache: this.threadRecordReadCache,
       getCodexHomePath: () => this.getCodexHomePath(),
       sendLocalRequest: (method: string, params?: unknown) => this.sendLocalRequest(method, params),
     };
