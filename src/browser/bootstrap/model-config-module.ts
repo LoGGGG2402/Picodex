@@ -2,17 +2,16 @@ export function installBootstrapModelConfigModule(args: {
   modelConfigHost: HTMLDivElement;
   showNotice: (message: string) => void;
   ensureHostAttached: (host: HTMLDivElement) => void;
-  isPrimaryUnmodifiedClick: (event: MouseEvent) => boolean;
   isRecord: (value: unknown) => value is Record<string, unknown>;
   callPicodexIpc: (method: string, params?: unknown) => Promise<unknown>;
 }): {
   startModelConfigObserver: () => void;
+  openModelConfigFromShortcut: () => void;
 } {
   const {
     modelConfigHost,
     showNotice,
     ensureHostAttached,
-    isPrimaryUnmodifiedClick,
     isRecord,
     callPicodexIpc,
   } = args;
@@ -108,8 +107,6 @@ export function installBootstrapModelConfigModule(args: {
       subtree: true,
       characterData: true,
     });
-
-    document.addEventListener("click", handleDocumentClick, true);
   }
 
   function refreshModelButtons(root: Document | Element = document): void {
@@ -119,7 +116,7 @@ export function installBootstrapModelConfigModule(args: {
       }
 
       candidate.dataset.picodexModelConfigTrigger = "true";
-      candidate.setAttribute("title", "Configure model defaults");
+      candidate.removeAttribute("title");
       if (
         currentConfiguredModelLabel &&
         !buttonAlreadyDisplaysModelLabel(candidate, currentConfiguredModelLabel)
@@ -127,27 +124,6 @@ export function installBootstrapModelConfigModule(args: {
         updateModelButtonText(candidate, currentConfiguredModelLabel);
       }
     });
-  }
-
-  function handleDocumentClick(event: MouseEvent): void {
-    if (!isPrimaryUnmodifiedClick(event)) {
-      return;
-    }
-
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target) {
-      return;
-    }
-
-    const trigger = target.closest<HTMLElement>('button, [role="button"]');
-    if (!trigger || !looksLikeComposerModelButton(trigger)) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    void openModelConfig(trigger);
   }
 
   function looksLikeComposerModelButton(element: HTMLElement): boolean {
@@ -264,6 +240,18 @@ export function installBootstrapModelConfigModule(args: {
       );
       positionPanel(panel, anchor);
     }
+  }
+
+  function openModelConfigFromShortcut(): void {
+    const anchor =
+      document.activeElement instanceof HTMLElement && document.contains(document.activeElement)
+        ? document.activeElement
+        : document.body;
+    if (!anchor) {
+      return;
+    }
+
+    void openModelConfig(anchor);
   }
 
   function closeModelConfig(): void {
@@ -1544,10 +1532,6 @@ export function installBootstrapModelConfigModule(args: {
       return;
     }
 
-    if ((button.getAttribute("aria-label") ?? "").trim() !== normalizedNextLabel) {
-      button.setAttribute("aria-label", normalizedNextLabel);
-    }
-
     if (button.childElementCount === 0) {
       if ((button.textContent ?? "").trim() !== normalizedNextLabel) {
         button.textContent = normalizedNextLabel;
@@ -1585,11 +1569,6 @@ export function installBootstrapModelConfigModule(args: {
   function buttonAlreadyDisplaysModelLabel(button: HTMLElement, expectedLabel: string): boolean {
     const normalizedExpectedLabel = normalizeLabel(expectedLabel);
     if (!normalizedExpectedLabel) {
-      return true;
-    }
-
-    const ariaLabel = normalizeLabel(button.getAttribute("aria-label"));
-    if (ariaLabel === normalizedExpectedLabel) {
       return true;
     }
 
@@ -1646,5 +1625,6 @@ export function installBootstrapModelConfigModule(args: {
 
   return {
     startModelConfigObserver,
+    openModelConfigFromShortcut,
   };
 }

@@ -1,6 +1,5 @@
 import { installBootstrapBridgeModule } from "./bridge-module.js";
 import { installBootstrapFilesModule } from "./files-module.js";
-import { installBootstrapMobileSidebarModule } from "./mobile-sidebar-module.js";
 import { installBootstrapModelConfigModule } from "./model-config-module.js";
 import { installBootstrapOpenInAppModule } from "./open-in-app-module.js";
 import { installBootstrapSettingsImportModule } from "./settings-import-module.js";
@@ -11,10 +10,7 @@ import type { BootstrapScriptConfig, FilesState, WorkspaceFileEntry } from "./ty
 export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
   const POCODEX_STYLESHEET_ID = "picodex-stylesheet";
   const TOKEN_STORAGE_KEY = "__picodex_token";
-  const MOBILE_SIDEBAR_MEDIA_QUERY = "(max-width: 640px), (pointer: coarse) and (max-width: 900px)";
   const APPEARANCE_THEME_VALUES = new Set(["light", "dark", "system"]);
-  const POCODEX_SETTINGS_EMBED_QUERY_PARAM = "picodexEmbed";
-  const POCODEX_SETTINGS_EMBED_VALUE = "settings-modal";
   const BACKGROUND_SUBAGENTS_STATSIG_GATE = "1221508807";
   const POCODEX_STATSIG_CLASS_PATCH_MARK = "__picodexBackgroundSubagentsPatched";
   const POCODEX_STATSIG_INSTANCE_PATCH_MARK = "__picodexBackgroundSubagentsInstancePatched";
@@ -106,21 +102,12 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     modelConfigHost,
     showNotice,
     ensureHostAttached,
-    isPrimaryUnmodifiedClick,
     isRecord,
     callPicodexIpc: settingsImportApi.callPicodexIpc,
   });
   const openInAppApi = installBootstrapOpenInAppModule();
 
-  let bridgeApi: { dispatchHostMessage: (message: unknown) => void } | null = null;
-  const mobileApi = installBootstrapMobileSidebarModule({
-    mobileSidebarMediaQuery: MOBILE_SIDEBAR_MEDIA_QUERY,
-    dispatchHostMessage: (message) => {
-      bridgeApi?.dispatchHostMessage(message);
-    },
-    isPrimaryUnmodifiedClick,
-  });
-  bridgeApi = installBootstrapBridgeModule({
+  const bridgeApi = installBootstrapBridgeModule({
     config,
     filesState,
     showNotice,
@@ -137,7 +124,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     openManualFilePickerDialog: settingsImportApi.openManualFilePickerDialog,
     refreshWorkspaceFileRoots: filesApi.refreshWorkspaceFileRoots,
     revealWorkspaceFile: filesApi.revealWorkspaceFile,
-    isMobileSidebarViewport: mobileApi.isMobileSidebarViewport,
+    isMobileSidebarViewport: () => false,
   });
 
   statsigApi.installStatsigBackgroundSubagentsOverride();
@@ -146,6 +133,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     ensureStylesheetLink(config.stylesheetHref);
     themeApi.applyPicodexThemePreference("system");
     themeApi.installPicodexSystemThemeListener();
+    installBrowserSafeShortcutRemaps();
     ensureHostAttached(toastHost);
     ensureHostAttached(statusHost);
     ensureHostAttached(importHost);
@@ -156,13 +144,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     settingsImportApi.startImportUiObserver();
     filesApi.startFilesUiObserver();
     modelConfigApi.startModelConfigObserver();
-    if (isEmbeddedSettingsView()) {
-      settingsImportApi.installEmbeddedSettingsChromeCleanup();
-    } else {
-      settingsImportApi.removeInjectedSettingsButtons();
-      settingsImportApi.installNativeSettingsOverride();
-    }
-    mobileApi.installMobileSidebarThreadNavigationClose();
+    settingsImportApi.removeInjectedSettingsButtons();
   });
 
   function runWhenDocumentReady(callback: () => void): void {
@@ -171,6 +153,84 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
       return;
     }
     callback();
+  }
+
+  function installBrowserSafeShortcutRemaps(): void {
+    const isMac = /\bMac/i.test(navigator.platform);
+    const remapHandler = (event: KeyboardEvent) => {
+      if (!event.isTrusted) {
+        return;
+      }
+
+      const remappedAction = getBrowserSafeShortcutAction(event, isMac);
+      if (!remappedAction) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      if (remappedAction.type === "open-model-config") {
+        modelConfigApi.openModelConfigFromShortcut();
+        return;
+      }
+
+      if (remappedAction.type === "open-files-panel") {
+        void filesApi.toggleFilesPanel();
+        return;
+      }
+
+      bridgeApi?.dispatchHostMessage(remappedAction);
+    };
+
+    window.addEventListener("keydown", remapHandler, true);
+  }
+
+  function getBrowserSafeShortcutAction(
+    event: KeyboardEvent,
+    isMac: boolean,
+  ):
+    | { type: "navigate-to-route"; path: "/settings/general-settings" }
+    | { type: "open-files-panel" }
+    | { type: "open-model-config" }
+    | { type: "toggle-sidebar" }
+    | { type: "toggle-terminal" }
+    | null {
+    const normalizedKey = event.key.toLowerCase();
+    if (event.repeat) {
+      return null;
+    }
+
+    const matchesBrowserSafePrimaryShortcut = isMac
+      ? event.metaKey && event.shiftKey && !event.ctrlKey && !event.altKey
+      : event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey;
+
+    if (!matchesBrowserSafePrimaryShortcut) {
+      return null;
+    }
+
+    if (normalizedKey === "b") {
+      return { type: "toggle-sidebar" };
+    }
+
+    if (normalizedKey === "j") {
+      return { type: "toggle-terminal" };
+    }
+
+    if (normalizedKey === "e") {
+      return { type: "open-files-panel" };
+    }
+
+    if (normalizedKey === "m") {
+      return { type: "open-model-config" };
+    }
+
+    if (event.code === "Comma") {
+      return { type: "navigate-to-route", path: "/settings/general-settings" };
+    }
+
+    return null;
   }
 
   function installClipboardWriteTextShim(): void {
@@ -370,11 +430,6 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
       !event.altKey &&
       !event.shiftKey
     );
-  }
-
-  function isEmbeddedSettingsView(): boolean {
-    const url = new URL(window.location.href);
-    return url.searchParams.get(POCODEX_SETTINGS_EMBED_QUERY_PARAM) === POCODEX_SETTINGS_EMBED_VALUE;
   }
 
   function getStoredToken(): string {

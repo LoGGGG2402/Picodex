@@ -110,7 +110,40 @@ export class PicodexServer {
 
   constructor(private readonly options: PicodexServerOptions) {
     this.httpServer = createServer((request, response) => {
-      void this.handleHttpRequest(request, response);
+      void this.handleHttpRequest(request, response).catch((error) => {
+        if (isClientAbortError(error)) {
+          debugLog("server", "ignoring aborted HTTP request", {
+            error: error.message,
+            url: request.url ?? "/",
+          });
+          return;
+        }
+
+        warnOnceLog(
+          "server",
+          `http-request-failure:${request.method ?? "GET"}:${request.url ?? "/"}`,
+          "Picodex server request failed",
+          {
+            error: error instanceof Error ? error.message : String(error),
+            method: request.method ?? "GET",
+            url: request.url ?? "/",
+          },
+        );
+
+        if (response.destroyed) {
+          return;
+        }
+
+        if (!response.headersSent) {
+          response.statusCode = 500;
+          response.setHeader("Cache-Control", "no-store");
+          response.setHeader("Content-Type", "text/plain; charset=utf-8");
+          response.end("Internal server error");
+          return;
+        }
+
+        response.destroy();
+      });
     });
     this.wsServer = new WebSocketServer({ noServer: true });
 
@@ -1157,6 +1190,22 @@ async function readRequestBody(request: IncomingMessage): Promise<string> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+function isClientAbortError(error: unknown): error is Error & { code?: string } {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const code = typeof (error as { code?: unknown }).code === "string"
+    ? (error as { code?: string }).code
+    : "";
+  const normalizedMessage = error.message.trim().toLowerCase();
+  return code === "ECONNRESET" || normalizedMessage === "aborted" || requestWasAbortedMessage(normalizedMessage);
+}
+
+function requestWasAbortedMessage(message: string): boolean {
+  return message.includes("request aborted") || message.includes("aborted");
 }
 
 function extractRequestId(payload: unknown): string {

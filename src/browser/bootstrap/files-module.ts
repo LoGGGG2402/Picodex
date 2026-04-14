@@ -1045,6 +1045,19 @@ export function installBootstrapFilesModule(args: {
     showNotice(copied ? "Workspace path copied." : "Clipboard is not available in this browser.");
   }
 
+  function hasWorkspacePreviewCopyContents(): boolean {
+    return filesState.previewKind === "text" && getActiveWorkspacePreviewPath() !== null;
+  }
+
+  async function copyWorkspacePreviewContents(): Promise<void> {
+    if (!hasWorkspacePreviewCopyContents()) {
+      return;
+    }
+
+    const copied = await copyTextToClipboard(filesState.previewContents);
+    showNotice(copied ? "File contents copied." : "Clipboard is not available in this browser.");
+  }
+
   async function downloadWorkspacePreview(): Promise<void> {
     const activePath = getActiveWorkspacePreviewPath();
     if (!activePath) {
@@ -1711,6 +1724,14 @@ export function installBootstrapFilesModule(args: {
       void copyWorkspacePreviewPath();
     });
 
+    const copyContentsButton = document.createElement("button");
+    copyContentsButton.type = "button";
+    copyContentsButton.textContent = "Copy file";
+    copyContentsButton.disabled = !hasWorkspacePreviewCopyContents();
+    copyContentsButton.addEventListener("click", () => {
+      void copyWorkspacePreviewContents();
+    });
+
     const downloadButton = document.createElement("button");
     downloadButton.type = "button";
     downloadButton.textContent = "Download";
@@ -1719,7 +1740,7 @@ export function installBootstrapFilesModule(args: {
       void downloadWorkspacePreview();
     });
 
-    previewActions.append(previewMeta, downloadButton, copyPathButton);
+    previewActions.append(previewMeta, copyContentsButton, downloadButton, copyPathButton);
     previewTitleGroup.append(previewHeading, previewTitle);
     previewHeader.append(previewTitleGroup, previewActions);
 

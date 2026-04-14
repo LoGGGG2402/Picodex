@@ -124,6 +124,12 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
       case "workspace-files/search":
         return buildIpcSuccessResponse(requestId, await bridge.searchWorkspaceBrowserFiles(payload.params));
       default:
+        if (ALLOWED_BROWSER_APP_SERVER_IPC_METHODS.has(method)) {
+          return buildIpcSuccessResponse(
+            requestId,
+            await sendLocalRequest(bridge, method, payload.params),
+          );
+        }
         return buildIpcErrorResponse(requestId, `IPC method "${method}" is not supported in Picodex yet.`);
     }
   } catch (error) {
@@ -132,10 +138,30 @@ export async function handleIpcRequest(bridge: LifecycleContext, payload: unknow
 }
 
 const ALLOWED_BROWSER_APP_SERVER_IPC_METHODS = new Set([
+  "account/login/cancel",
+  "account/login/start",
+  "account/logout",
+  "account/rateLimits/read",
+  "account/read",
+  "app/list",
+  "collaborationMode/list",
   "config/batchWrite",
   "config/read",
   "config/value/write",
+  "configRequirements/read",
+  "feedback/upload",
+  "getAuthStatus",
+  "gitDiffToRemote",
+  "mcpServer/oauth/login",
+  "mcpServerStatus/list",
   "model/list",
+  "plugin/install",
+  "plugin/list",
+  "plugin/read",
+  "plugin/uninstall",
+  "skills/config/write",
+  "skills/list",
+  "windowsSandbox/setupStart",
 ]);
 
 async function handleAllowedAppServerIpcRequest(

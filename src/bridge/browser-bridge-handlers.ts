@@ -59,6 +59,7 @@ export function createDroppedBrowserBridgeMessageTypes(): Set<string> {
     "power-save-blocker-set",
     "rename-thread",
     "serverRequest/resolved",
+    "set-telemetry-user",
     "subagent-thread-opened",
     "thread-archived",
     "thread-queued-followups-changed",
