@@ -1,6 +1,6 @@
 {
   "name": "picodex",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Serve the real Codex desktop webview in a browser and proxy the host runtime.",
   "keywords": [
     "browser",
