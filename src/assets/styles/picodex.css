@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "FiraCode Nerd Font Mono Embedded";
+  src: url("/picodex-assets/fonts/FiraCodeNerdFontMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 html[data-picodex="true"] {
   .app-header-left {
     --spacing-token-safe-header-left: 0px !important;
@@ -88,8 +96,19 @@ html[data-picodex="true"] {
   --picodex-radius-sm: var(--radius-md, 12px);
   --picodex-radius-md: var(--radius-xl, 16px);
   --picodex-radius-lg: var(--radius-3xl, 24px);
+  --picodex-embedded-mono-font:
+    "FiraCode Nerd Font Mono Embedded", "FiraCode Nerd Font Mono", "Symbols Nerd Font Mono", monospace;
+  --font-mono: var(--picodex-embedded-mono-font, var(--vscode-editor-font-family, monospace));
   color: var(--picodex-text);
   font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+}
+
+html[data-picodex="true"] .xterm,
+html[data-picodex="true"] .xterm *,
+html[data-picodex="true"] .xterm-screen,
+html[data-picodex="true"] .xterm-rows,
+html[data-picodex="true"] .xterm-helper-textarea {
+  font-family: var(--picodex-embedded-mono-font, monospace) !important;
 }
 
 html[data-picodex="true"] #picodex-toast-host {

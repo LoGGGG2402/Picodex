@@ -3,6 +3,8 @@ import type { SentryInitOptions } from "../../core/protocol.js";
 export interface BootstrapScriptConfig {
   sentryOptions: SentryInitOptions;
   stylesheetHref: string;
+  embeddedMonoFontFamily?: string;
+  embeddedMonoFontUrl?: string;
   importIconSvg?: string;
 }
 

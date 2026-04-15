@@ -18,6 +18,9 @@ import { PicodexServer } from "./server/picodex-server.js";
 
 const DEFAULT_LISTEN = "127.0.0.1:8787";
 const POCODEX_STYLESHEET_HREF = "/picodex.css";
+const POCODEX_EMBEDDED_MONO_FONT_HREF = "/picodex-assets/fonts/FiraCodeNerdFontMono-Regular.woff2";
+const POCODEX_EMBEDDED_MONO_FONT_FAMILY =
+  '"FiraCode Nerd Font Mono Embedded", "FiraCode Nerd Font Mono", "Symbols Nerd Font Mono", monospace';
 const FLAG_NAMES_WITH_VALUES = new Set(["--app", "--asar", "--codex-bin", "--listen", "--token"]);
 const BOOLEAN_FLAG_NAMES = new Set(["--dev"]);
 
@@ -48,6 +51,7 @@ async function main(): Promise<void> {
     appAsarPath: options.appAsarPath,
     codexCliPath: options.codexCliPath,
   });
+  const picodexAssetRoot = fileURLToPath(new URL("./assets", import.meta.url));
   const picodexCssPath = fileURLToPath(new URL("./assets/styles/picodex.css", import.meta.url));
   const importIconSvgPath = fileURLToPath(new URL("./assets/images/import.svg", import.meta.url));
   const bundle = await loadCodexBundle(resolvedCodexPaths);
@@ -70,6 +74,7 @@ async function main(): Promise<void> {
     listenPort: options.listenPort,
     token: options.token,
     relay,
+    picodexAssetRoot,
     webviewRoot: bundle.webviewRoot,
     readPicodexStylesheet: async () => readFile(picodexCssPath, "utf8"),
     renderIndexHtml: async () => {
@@ -78,8 +83,11 @@ async function main(): Promise<void> {
         bootstrapScript: renderBootstrapScript({
           sentryOptions,
           stylesheetHref: POCODEX_STYLESHEET_HREF,
+          embeddedMonoFontFamily: POCODEX_EMBEDDED_MONO_FONT_FAMILY,
+          embeddedMonoFontUrl: POCODEX_EMBEDDED_MONO_FONT_HREF,
           importIconSvg: await readFile(importIconSvgPath, "utf8"),
         }),
+        fontPreloadHref: POCODEX_EMBEDDED_MONO_FONT_HREF,
         stylesheetHref: POCODEX_STYLESHEET_HREF,
       });
     },

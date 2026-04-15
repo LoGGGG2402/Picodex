@@ -4,15 +4,23 @@ export function patchIndexHtml(
   html: string,
   options: {
     bootstrapScript: string;
+    fontPreloadHref?: string;
     stylesheetHref: string;
   },
 ): string {
+  const fontPreloadTag = options.fontPreloadHref
+    ? `<link rel="preload" href="${options.fontPreloadHref}" as="font" type="font/woff2" crossorigin>`
+    : "";
   const stylesheetTag = `<link rel="stylesheet" href="${options.stylesheetHref}" id="picodex-stylesheet">`;
   const bootstrapTag = `<script>${options.bootstrapScript}</script>`;
   const withBootstrap = html.replace(
     /(\s*)(<script type="module"\s+crossorigin\s+src="\.[^"]+"><\/script>)/,
     (_match, indentation, entryScript) =>
-      `${indentation}${stylesheetTag}\n${indentation}${bootstrapTag}\n${indentation}${entryScript}`,
+      renderInjectedBootstrapTags(indentation, entryScript, {
+        fontPreloadTag,
+        stylesheetTag,
+        bootstrapTag,
+      }),
   );
 
   if (withBootstrap === html) {
@@ -30,4 +38,23 @@ export function patchIndexHtml(
   }
 
   return withCsp;
+}
+
+function renderInjectedBootstrapTags(
+  indentation: string,
+  entryScript: string,
+  tags: {
+    fontPreloadTag: string;
+    stylesheetTag: string;
+    bootstrapTag: string;
+  },
+): string {
+  const injectedTags = [
+    tags.fontPreloadTag ? `${indentation}${tags.fontPreloadTag}` : null,
+    `${indentation}${tags.stylesheetTag}`,
+    `${indentation}${tags.bootstrapTag}`,
+    `${indentation}${entryScript}`,
+  ].filter((line): line is string => line !== null);
+
+  return injectedTags.join("\n");
 }

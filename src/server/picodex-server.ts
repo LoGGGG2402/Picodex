@@ -288,6 +288,40 @@ export class PicodexServer {
       return;
     }
 
+    if (url.pathname.startsWith("/picodex-assets/")) {
+      const relativePath = url.pathname.replace(/^\/picodex-assets\/+/, "");
+      if (!relativePath) {
+        response.statusCode = 404;
+        response.end("Not found");
+        return;
+      }
+
+      const absolutePath = resolve(this.options.picodexAssetRoot, relativePath);
+      if (
+        absolutePath !== this.options.picodexAssetRoot &&
+        !absolutePath.startsWith(`${this.options.picodexAssetRoot}${sep}`)
+      ) {
+        response.statusCode = 404;
+        response.end("Not found");
+        return;
+      }
+
+      try {
+        const fileBuffer = await readFile(absolutePath);
+        response.statusCode = 200;
+        response.setHeader("Cache-Control", "public, max-age=3600");
+        response.setHeader(
+          "Content-Type",
+          mimeTypes.lookup(absolutePath) || "application/octet-stream",
+        );
+        response.end(fileBuffer);
+      } catch {
+        response.statusCode = 404;
+        response.end("Not found");
+      }
+      return;
+    }
+
     if (url.pathname === "/ipc-request") {
       await this.handleIpcRequest(request, response);
       return;

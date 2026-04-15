@@ -20,6 +20,7 @@ export interface PicodexServerOptions {
   listenPort: number;
   token: string;
   relay: HostBridge;
+  picodexAssetRoot: string;
   webviewRoot: string;
   readPicodexStylesheet: () => Promise<string>;
   renderIndexHtml: () => Promise<string>;

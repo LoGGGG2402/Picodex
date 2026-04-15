@@ -31,6 +31,9 @@ import {
 } from "./utils.js";
 import { looksLikeBinaryFile } from "./workspace.js";
 
+const EMBEDDED_MONO_FONT_FAMILY =
+  '"FiraCode Nerd Font Mono Embedded", "FiraCode Nerd Font Mono", "Symbols Nerd Font Mono", monospace';
+
 export interface HostStateContext {
   cwd: string;
   globalState: Map<string, unknown>;
@@ -428,6 +431,8 @@ function getConfigurationValue(bridge: HostStateContext, key: string): unknown {
       return false;
     case "sansFontSize":
       return 13;
+    case "codeFontFamily":
+      return EMBEDDED_MONO_FONT_FAMILY;
     case "codeFontSize":
       return 12;
     case "localeOverride":

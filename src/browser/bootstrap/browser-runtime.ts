@@ -131,6 +131,7 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
 
   runWhenDocumentReady(() => {
     ensureStylesheetLink(config.stylesheetHref);
+    void ensureEmbeddedMonoFontLoaded();
     themeApi.applyPicodexThemePreference("system");
     themeApi.installPicodexSystemThemeListener();
     installBrowserSafeShortcutRemaps();
@@ -146,6 +147,63 @@ export function bootstrapPicodexInBrowser(config: BootstrapScriptConfig): void {
     modelConfigApi.startModelConfigObserver();
     settingsImportApi.removeInjectedSettingsButtons();
   });
+
+  async function ensureEmbeddedMonoFontLoaded(): Promise<void> {
+    const fontFamily = config.embeddedMonoFontFamily?.trim();
+    const fontUrl = config.embeddedMonoFontUrl?.trim();
+    if (!fontFamily || !fontUrl || typeof FontFace !== "function" || !("fonts" in document)) {
+      return;
+    }
+
+    const primaryFontFamily = getPrimaryFontFamily(fontFamily);
+    const fontFaceSet = document.fonts;
+    const alreadyLoaded = await fontFaceSet.load(`12px "${primaryFontFamily}"`).catch(() => []);
+    if (alreadyLoaded.length === 0) {
+      try {
+        const fontFace = new FontFace(
+          primaryFontFamily,
+          `url("${fontUrl}") format("woff2")`,
+          { style: "normal", weight: "400" },
+        );
+        const loadedFont = await fontFace.load();
+        fontFaceSet.add(loadedFont);
+      } catch {
+        return;
+      }
+    }
+
+    refreshTerminalFontTargets(fontFamily);
+    scheduleTerminalFontRefresh(fontFamily);
+  }
+
+  function refreshTerminalFontTargets(fontFamily: string): void {
+    const targets = document.querySelectorAll<HTMLElement>(
+      ".xterm, .xterm-screen, .xterm-rows, .xterm-helper-textarea",
+    );
+    for (const target of targets) {
+      target.style.fontFamily = fontFamily;
+    }
+  }
+
+  function scheduleTerminalFontRefresh(fontFamily: string): void {
+    queueMicrotask(() => {
+      refreshTerminalFontTargets(fontFamily);
+      window.dispatchEvent(new Event("resize"));
+      requestAnimationFrame(() => {
+        refreshTerminalFontTargets(fontFamily);
+        window.dispatchEvent(new Event("resize"));
+      });
+    });
+  }
+
+  function getPrimaryFontFamily(fontFamily: string): string {
+    const match = fontFamily.match(/"([^"]+)"/);
+    if (match?.[1]) {
+      return match[1];
+    }
+    const [firstFamily] = fontFamily.split(",");
+    return firstFamily?.trim() || fontFamily;
+  }
 
   function runWhenDocumentReady(callback: () => void): void {
     if (document.readyState === "loading") {
